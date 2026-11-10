@@ -267,12 +267,31 @@ Page({
     if (state.exempt) return true;
     if (state.remaining > 0) return true;
     const unitId = state.cfg.videoUnitId;
-    if (!unitId || unitId === 'your_ad_id' || typeof wx.createRewardedVideoAd !== 'function') {
-      console.warn('[recognize] 未配置激励视频广告位，跳过广告门禁');
-      return true;
+    const adReady = unitId && unitId !== 'your_ad_id' && typeof wx.createRewardedVideoAd === 'function';
+    // 没有广告位（或未配置）：明确告知次数用完，不要静默放行、也不要什么都不发生
+    if (!adReady) {
+      await wx.showModal({
+        title: '识别次数已用完',
+        content: '今天的免费识别次数已经用完了，明天再来吧～（管理员可在页面配置里调整每天赠送次数）',
+        showCancel: false,
+        confirmText: '知道了',
+      });
+      return false;
     }
-    const passed = await this.showRewardedAd(unitId);
-    if (!passed) {
+    // 先征求用户同意再看广告，避免「一点识别就强制播广告」
+    const confirm = await wx.showModal({
+      title: '识别次数已用完',
+      content: '看一次激励视频可以增加 ' + state.cfg.bonus + ' 次识别机会，是否观看？',
+      confirmText: '观看',
+      cancelText: '取消',
+    });
+    if (!confirm.confirm) return false;
+    const adResult = await this.showRewardedAd(unitId);
+    if (adResult.error) {
+      wx.showToast({ icon: 'none', title: '广告暂时不可用，请稍后再试', duration: 2500 });
+      return false;
+    }
+    if (!adResult.ended) {
       wx.showToast({ icon: 'none', title: '看完广告才能继续识别哦', duration: 2500 });
       return false;
     }
@@ -300,7 +319,7 @@ Page({
     this.refreshAdUsage();
   },
 
-  /** 播放激励视频；看完 resolve(true)，中途关闭或出错按「放行/不放行」分别处理 */
+  /** 播放激励视频：resolve({ ended, error })，由调用方决定是否放行并提示 */
   showRewardedAd(unitId) {
     return new Promise((resolve) => {
       if (!this.jsData.adVideo || this.jsData.adVideoUnitId !== unitId) {
@@ -316,11 +335,10 @@ Page({
         ad.offError(onError);
         resolve(value);
       };
-      const onClose = (res) => done(!!(res && res.isEnded));
+      const onClose = (res) => done({ ended: !!(res && res.isEnded), error: false });
       const onError = (err) => {
-        // 广告加载失败不算用户的错：放行，避免功能被广告 SDK 卡死
-        console.warn('[recognize] 激励视频不可用，放行本次识别', err);
-        done(true);
+        console.warn('[recognize] 激励视频不可用', err);
+        done({ ended: false, error: true });
       };
       ad.onClose(onClose);
       ad.onError(onError);

@@ -78,6 +78,19 @@ Page({
   },
 
   /**
+   * 页面卸载时销毁激励视频实例。
+   * 广告实例与创建它的页面绑定：不销毁会残留在微信广告引擎里，
+   * 导致别的页面用同一广告位时 show() 报「只能在创建它的页面调用」。
+   */
+  onUnload() {
+    const ad = this.jsData && this.jsData.videoAd;
+    if (ad && typeof ad.destroy === 'function') {
+      try { ad.destroy(); } catch (e) { console.warn('[reward] 销毁广告实例失败', e); }
+    }
+    if (this.jsData) this.jsData.videoAd = null;
+  },
+
+  /**
    * 用户点击右上角分享
    */
   onShareAppMessage: function () {

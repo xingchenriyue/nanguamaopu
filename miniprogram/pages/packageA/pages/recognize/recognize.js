@@ -288,8 +288,11 @@ Page({
     if (!confirm.confirm) return false;
     const adResult = await this.showRewardedAd(unitId);
     if (adResult.error) {
-      wx.showToast({ icon: 'none', title: '广告暂时不可用，请稍后再试', duration: 2500 });
-      return false;
+      // 广告位异常（常见：同一个 adUnitId 在别的页面创建过，微信只允许在创建它的页面 show）。
+      // 这种技术性故障不该把识别彻底锁死：本次放行并提示，建议管理员给识猫页单独建广告位。
+      console.warn('[recognize] 激励视频不可用，本次放行', adResult.message);
+      wx.showToast({ icon: 'none', title: '广告暂时不可用，本次先放行', duration: 2500 });
+      return true;
     }
     if (!adResult.ended) {
       wx.showToast({ icon: 'none', title: '看完广告才能继续识别哦', duration: 2500 });
@@ -338,7 +341,7 @@ Page({
       const onClose = (res) => done({ ended: !!(res && res.isEnded), error: false });
       const onError = (err) => {
         console.warn('[recognize] 激励视频不可用', err);
-        done({ ended: false, error: true });
+        done({ ended: false, error: true, message: (err && err.errMsg) || (err && err.message) || '' });
       };
       ad.onClose(onClose);
       ad.onError(onError);
@@ -791,6 +794,15 @@ Page({
     this.setData({
       showAdBox: false
     });
+  },
+
+  /** 页面卸载时销毁激励视频实例：广告实例与创建它的页面绑定，残留会报「只能在创建页面 show」 */
+  onUnload() {
+    const ad = this.jsData && this.jsData.adVideo;
+    if (ad && typeof ad.destroy === 'function') {
+      try { ad.destroy(); } catch (e) { console.warn('[recognize] 销毁广告实例失败', e); }
+    }
+    if (this.jsData) { this.jsData.adVideo = null; this.jsData.adVideoUnitId = ''; }
   }
 
 })

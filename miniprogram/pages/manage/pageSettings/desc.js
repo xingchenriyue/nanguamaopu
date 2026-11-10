@@ -225,7 +225,7 @@ module.exports = {
     },
     "recognize_video": {
       type: "text",
-      tip: "识猫页专用激励视频广告ID（留空则直接复用下方「打赏投喂页激励广告ID」，一般不用填）",
+      tip: "识猫页专用激励视频广告ID。建议单独创建：与投喂页共用同一广告位时，微信可能报「只能在创建它的页面 show」而无法播放",
       default: "your_ad_id"
     },
     "recognize_free_times": {

@@ -278,7 +278,13 @@ Page({
     return true;
   },
 
-  bumpAdUsage() {
+  /**
+   * 识别成功计数。
+   * 免广告用户**不消耗**每日额度：这样免广告到期后他还剩原来的次数，
+   * 不会出现「免广告期间把额度用光、到期立刻被广告拦住」的情况。
+   */
+  async bumpAdUsage() {
+    if (await this.isAdExempt()) return;
     const usage = this.adUsage();
     usage.used += 1;
     this.saveAdUsage(usage);

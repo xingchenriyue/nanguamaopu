@@ -224,25 +224,38 @@ Page({
     if (current === 0 || current === '0') hint = '当前：永久免广告';
     else if (Number(current) > Date.now()) hint = '当前：有效期至 ' + formatDate(Number(current)) + '（约 ' + Math.ceil((Number(current) - Date.now()) / 86400000) + ' 天）';
 
-    const res = await wx.showModal({
-      title: '免看识猫广告',
-      content: hint,
-      editable: true,
-      placeholderText: '天数：0=永久，留空=取消免广告',
-      confirmText: '保存',
-    });
-    if (!res.confirm) return;
-    const raw = String(res.content || '').trim();
+    // 用选择器而不是文本输入：管理员点一下就能选，避免手输格式出错
+    const items = ['永久免广告', '7 天', '30 天', '自定义天数…', '取消免广告'];
+    let choiceIndex = -1;
+    try {
+      const sheet = await wx.showActionSheet({ alertText: hint, itemList: items });
+      choiceIndex = sheet.tapIndex;
+    } catch (error) {
+      return; // 用户取消
+    }
     const userInfo = Object.assign({}, user.userInfo || {});
-    if (raw === '') {
+    if (items[choiceIndex] === '取消免广告') {
       delete userInfo.adExemptUntil;
-    } else {
-      const days = parseInt(raw, 10);
+    } else if (items[choiceIndex] === '自定义天数…') {
+      const custom = await wx.showModal({
+        title: '免广告天数',
+        content: hint,
+        editable: true,
+        placeholderText: '填整数天数，0 = 永久',
+        confirmText: '保存',
+      });
+      if (!custom.confirm) return;
+      const days = parseInt(String(custom.content || '').trim(), 10);
       if (!Number.isFinite(days) || days < 0) {
         wx.showToast({ icon: 'none', title: '请输入不小于 0 的整数' });
         return;
       }
       userInfo.adExemptUntil = days === 0 ? 0 : Date.now() + days * 86400000;
+    } else if (items[choiceIndex] === '永久免广告') {
+      userInfo.adExemptUntil = 0;
+    } else {
+      const days = items[choiceIndex] === '7 天' ? 7 : 30;
+      userInfo.adExemptUntil = Date.now() + days * 86400000;
     }
     let result;
     try {

@@ -8,7 +8,7 @@
  * ============================================================================
  */
 // 画图全局canvas，依赖版本库：2.24.7
-import {compressImage, sleep} from "./utils";
+import {compressImage, sleep} from "../../../utils/utils";
 
 // 初始化canvas接口
 function initCanvas(canvasId) {

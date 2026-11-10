@@ -15,7 +15,7 @@ import {
 import drawUtils from "../../../../utils/draw";
 import { signPhotoUrls } from  "../../../../utils/cat";
 import api from "../../../../utils/cloudApi";
-import { getRecognizeMode, readAdUsage, writeAdUsage, syncAdUsageToServer } from "../../../../utils/recognize";
+import { getRecognizeMode, readAdUsage, writeAdUsage, fetchAdUsage, syncAdUsageToServer } from "../../../../utils/recognize";
 import { getUser, getUserType } from "../../../../utils/user";
 
 const share_text = text_cfg.app_name + ' - ' + text_cfg.recognize.share_tip;
@@ -237,7 +237,8 @@ Page({
   /** 刷新「已识别 / 看广告 / 剩余次数」展示 */
   async refreshAdUsage() {
     const cfg = this.adConfig();
-    const usage = this.adUsage();
+    // 以服务端快照为准（管理员在人员管理里改的剩余次数要立刻反映到识猫页）
+    const usage = await fetchAdUsage(cfg.reset);
     const exempt = await this.isAdExempt();
     const total = cfg.freeTimes + usage.bonus;
     const remaining = exempt ? -1 : Math.max(0, total - usage.used);

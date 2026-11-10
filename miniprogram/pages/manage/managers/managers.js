@@ -98,7 +98,9 @@ Page({
     var userSearch = this.data.userSearch;
     var query = {};
     if (userSearch) {
-      query["userInfo.nickName"] = { $regex: userSearch }
+      // 转义正则元字符：把用户输入当字面串搜索，避免被输入特殊的正则拖垮数据库
+      const safeSearch = String(userSearch).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').slice(0, 50);
+      query["userInfo.nickName"] = { $regex: safeSearch, $options: 'i' }
     }
     if (this.data.managerOnly) {
       query["manager"] = { $gt: 0 }

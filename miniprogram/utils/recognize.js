@@ -104,6 +104,38 @@ const AD_USAGE_KEY = 'recognize-ad-usage';
  * 本地 storage 服务端看不到，所以每次计数变化后顺手同步一份快照。
  * 失败只告警，绝不阻塞识别/赠送流程。
  */
+/**
+ * 以服务端快照为准读取次数（识猫页与管理页必须同源，否则数字对不上）。
+ * 服务端快照属于上一个周期（bucket 不同）时按新周期从 0 开始。
+ * 读取失败（未登录/断网）回退本地缓存，保证识猫仍可用。
+ */
+async function fetchAdUsage(reset) {
+  const bucket = adBucketKey(reset, Date.now());
+  try {
+    const request = require('./request.js');
+    const res = await request.post('/api/recognize/usage', { action: 'get' });
+    const server = res && res.usage;
+    if (!server || !server.bucket) return readAdUsage(reset);
+    if (server.bucket !== bucket) {
+      // 服务端还是上个周期（昨天/上周）的计数：新周期重新开始，先把本地也翻新
+      const fresh = { bucket, used: 0, ads: 0, bonus: 0 };
+      writeAdUsage(fresh);
+      return fresh;
+    }
+    const usage = {
+      bucket,
+      used: Number(server.used) || 0,
+      ads: Number(server.ads) || 0,
+      bonus: Number(server.bonus) || 0,
+    };
+    writeAdUsage(usage);
+    return usage;
+  } catch (error) {
+    console.warn('[recognize] 读取服务端次数失败，回退本地', error);
+    return readAdUsage(reset);
+  }
+}
+
 async function syncAdUsageToServer(usage) {
   if (!usage) return null;
   try {
@@ -189,6 +221,7 @@ module.exports = {
   adBucketKey,
   readAdUsage,
   writeAdUsage,
+  fetchAdUsage,
   addRecognizeBonus,
   syncAdUsageToServer,
   getRecognizeMode,

@@ -16,7 +16,7 @@ import drawUtils from "../../utils/draw";
 import { signPhotoUrls } from  "../../../../utils/cat";
 import api from "../../../../utils/cloudApi";
 import { getRecognizeMode, readAdUsage, writeAdUsage, fetchAdUsage, syncAdUsageToServer } from "../../../../utils/recognize";
-import { getUser, getUserType } from "../../../../utils/user";
+import { getUser, getUserType, classifyUser } from "../../../../utils/user";
 
 const share_text = text_cfg.app_name + ' - ' + text_cfg.recognize.share_tip;
 // 免费识别次数：连续识别满 AD_FREE_TIMES 次后，下一次需要看完一次激励视频
@@ -218,14 +218,18 @@ Page({
   /** 是否免广告：单用户到期时间（人员管理页设置）+ 页面配置的免广告人群 */
   async isAdExempt() {
     try {
-      const user = await getUser();
+      // 【必须 nocache】getUser 默认缓存 25~35 分钟，管理员刚设置的免广告会读不到，
+      // 表现为「设置成功但用户端没生效」。
+      const user = await getUser({ nocache: true });
       const info = (user && user.userInfo) || {};
       const until = info.adExemptUntil;
       if (until === 0 || until === '0') return true;                 // 0 = 永久免广告
       if (Number(until) > Date.now()) return true;                    // 限期免广告
       const cfg = this.adConfig();
       if (cfg.exemptRoles.length) {
-        const type = await getUserType();
+        // 直接用刚取到的 user 判定人群，避免 getUserType 内部又读一次缓存
+        const isManager = !!((user && user.manager) >= 1);
+        const type = classifyUser(user, isManager);
         if (cfg.exemptRoles.indexOf(type) >= 0) return true;
       }
     } catch (error) {
@@ -450,6 +454,18 @@ Page({
       this.bumpAdUsage();
     } catch (err) {
       console.log('get error from catFace:', err);
+      // 后端 unionOp 业务失败会回 HTTP 400，错误体在 err.detail 里；
+      // 优先用它的 code/msg 展示（例如「连不上 MeowID（…）」），否则只看到「unionOp 业务失败」。
+      const detail = err && err.detail;
+      const biz = detail && (detail.result || detail);
+      if (biz && biz.ok === false) {
+        const bizMsg = biz.msg || biz.errMsg || detail.error || '';
+        this.setData({ recognitionMessage: bizMsg || '识别失败，请稍后再试' });
+        wx.hideLoading();
+        wx.showToast({ icon: 'none', title: bizMsg || '识别失败，请稍后再试', duration: 2500 });
+        wx.reportMonitor('recognizeCatPhotoError', 1);
+        return;
+      }
       const isTimeout = ['FunctionTimeout', 'timeout', 'ETIMEDOUT'].includes((err && err.code) || '');
       const message = isTimeout ? '识别请求超时（超过 55 秒），请稍后重试。'
         : stage === '读取识猫配置' ? '读取识猫配置失败，请稍后重试。'

@@ -287,6 +287,20 @@ Page({
       wx.showToast({ icon: 'none', title: '保存失败（服务端未命中记录）' });
       return;
     }
+    // 回读校验：确认 adExemptUntil 真的落库（历史上出现过「提示已保存但库没变」）
+    try {
+      const { result: fresh } = await apiDb.collection('user').findOne({ _id: user._id });
+      const saved = fresh && fresh.userInfo ? fresh.userInfo.adExemptUntil : undefined;
+      const expect = userInfo.adExemptUntil;
+      const same = (expect === undefined && (saved === undefined || saved === null))
+        || String(saved) === String(expect);
+      if (!same) {
+        wx.showToast({ icon: 'none', title: '保存未生效，请重试', duration: 2500 });
+        return;
+      }
+    } catch (e) {
+      console.warn('[managers] 免广告回读失败', e);
+    }
     this.setData({
       ['users[' + index + '].recognizeUsage']: nextUsage,
       ['users[' + index + '].adSeen']: Number(usage.ads) || 0,
@@ -314,10 +328,16 @@ Page({
     const items = ['永久免广告', '7 天', '30 天', '自定义天数…', '取消免广告'];
     let choiceIndex = -1;
     try {
-      const sheet = await wx.showActionSheet({ alertText: hint, itemList: items });
+      // 不用 alertText：部分基础库传了会直接抛参数错误，导致「点了没反应」
+      const sheet = await wx.showActionSheet({ itemList: items });
       choiceIndex = sheet.tapIndex;
     } catch (error) {
-      return; // 用户取消
+      const msg = String((error && (error.errMsg || error.message)) || '');
+      if (!/cancel/i.test(msg)) {
+        console.warn('[managers] showActionSheet 失败', error);
+        wx.showToast({ icon: 'none', title: '打开菜单失败，请重试' });
+      }
+      return;
     }
     const userInfo = Object.assign({}, user.userInfo || {});
     if (items[choiceIndex] === '取消免广告') {
@@ -354,6 +374,20 @@ Page({
     if (!isWriteOk(result)) {
       wx.showToast({ icon: 'none', title: '保存失败（服务端未命中记录）' });
       return;
+    }
+    // 回读校验：确认 adExemptUntil 真的落库（历史上出现过「提示已保存但库没变」）
+    try {
+      const { result: fresh } = await apiDb.collection('user').findOne({ _id: user._id });
+      const saved = fresh && fresh.userInfo ? fresh.userInfo.adExemptUntil : undefined;
+      const expect = userInfo.adExemptUntil;
+      const same = (expect === undefined && (saved === undefined || saved === null))
+        || String(saved) === String(expect);
+      if (!same) {
+        wx.showToast({ icon: 'none', title: '保存未生效，请重试', duration: 2500 });
+        return;
+      }
+    } catch (e) {
+      console.warn('[managers] 免广告回读失败', e);
     }
     // 立刻更新卡片上的免广告状态，不用等重新加载列表
     const until = userInfo.adExemptUntil;

@@ -233,7 +233,14 @@ Page({
     const usage = user.recognizeUsage || {};
     const used = Number(usage.used) || 0;
     const bonus = Number(usage.bonus) || 0;
-    const current = Math.max(0, freeTimes + bonus - used);
+    // 与列表展示保持一致：优先用快照里的 remaining（管理员设置的值），
+    // 没有才回退到 free+bonus-used。之前这里只用了旧算法，导致弹窗显示 2、列表显示 0。
+    const bucketNow = adBucketKey(this.data.adReset || 'daily', Date.now());
+    const stale = !!usage.bucket && usage.bucket !== bucketNow;
+    const hasRemaining = !stale && usage.remaining !== undefined && usage.remaining !== null;
+    const current = hasRemaining
+      ? Math.max(0, Number(usage.remaining) || 0)
+      : Math.max(0, freeTimes + bonus - used);
     this.setData({
       adRemainingModal: { show: true, index, current, value: String(current) },
     });

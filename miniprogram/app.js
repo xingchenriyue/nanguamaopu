@@ -23,6 +23,8 @@ App({
   async onLaunch() {
     checkUpdateVersion();
     this.clearCache();
+    // 每日识猫次数随「打开小程序」发放，失败不影响启动
+    this.claimDailyRecognizeQuota();
 
     this.globalData = {
       version: app_version,
@@ -50,6 +52,28 @@ App({
     }
   },
 
+  /**
+   * 每日识猫次数发放：打开小程序即领取一次（当天只发一次，次数取页面配置）。
+   * 【为什么在启动时】用户的理解是「登录=打开软件」，不该要求先进识猫页才发。
+   */
+  async claimDailyRecognizeQuota() {
+    try {
+      const { ensureLogin, getOpenidSync } = require('./utils/request.js');
+      // 【只有登录成功才发次数】未登录 / 登录失败一律不发；
+      // 小程序没有手动登录入口，静默登录成功即视为「已登录」。
+      if (!getOpenidSync()) await ensureLogin();
+      if (!getOpenidSync()) {
+        console.warn('[app] 未取得登录态，跳过当日识猫次数发放');
+        return;
+      }
+      const { claimDailyUsage } = require('./utils/recognize.js');
+      const { getGlobalSettings } = require('./utils/page.js');
+      const ads = await getGlobalSettings('ads', { nocache: true }) || {};
+      await claimDailyUsage(ads);
+    } catch (e) {
+      console.warn('[app] 领取每日识猫次数失败', e);
+    }
+  },
   /**
    * 每 48 小时清理一次业务缓存，避免过期签名 URL 与脏数据堆积。
    * 【必须保留登录态】clearStorageSync 会把 mp_token / mp_openid 一起清掉，

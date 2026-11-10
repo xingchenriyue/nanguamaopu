@@ -156,6 +156,32 @@ async function fetchAdUsage(reset) {
   }
 }
 
+/**
+ * 每日识别次数发放（打开小程序即领取，当天只发一次）。
+ * 【为什么放在启动时】用户的理解是「登录=打开软件就算使用」，
+ * 而不是「必须进识猫页才发次数」。这里按重置周期判断：
+ * 当前周期已有记录 → 不重复发放；新周期或无记录 → 发 freeTimes 次。
+ */
+async function claimDailyUsage(ads) {
+  const int = (v, dflt) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 1 ? n : dflt;
+  };
+  const resetRaw = String((ads && ads.recognize_ad_reset) || 'daily');
+  const reset = ['daily', 'weekly', 'never'].indexOf(resetRaw) >= 0 ? resetRaw : 'daily';
+  const freeTimes = int(ads && ads.recognize_free_times, 2);
+  const bucket = adBucketKey(reset, Date.now());
+  const res = await httpPost('/api/recognize/usage', { action: 'get' });
+  const server = res && res.usage;
+  if (server && server.bucket === bucket && server.remaining !== undefined && server.remaining !== null) {
+    return server; // 本周期已领取
+  }
+  // 新周期（或从未领取）：发放每日额度，并清零本周期计数
+  const usage = { bucket, used: 0, ads: 0, bonus: 0, remaining: freeTimes };
+  writeAdUsage(usage);
+  await syncAdUsageToServer(usage);
+  return usage;
+}
 async function syncAdUsageToServer(usage) {
   if (!usage) return null;
   try {
@@ -246,6 +272,7 @@ module.exports = {
   writeAdUsage,
   fetchAdUsage,
   addRecognizeBonus,
+  claimDailyUsage,
   syncAdUsageToServer,
   getRecognizeMode,
   normalizeRecognizeResponse,

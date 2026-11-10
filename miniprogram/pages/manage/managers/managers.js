@@ -156,7 +156,10 @@ Page({
       const hasRemaining = !stale && usage.remaining !== undefined && usage.remaining !== null;
       u.adUsed = used;
       u.adSeen = ads;
-      u.adRemaining = hasRemaining ? Math.max(0, Number(usage.remaining) || 0) : Math.max(0, freeTimes + bonus - used);
+      // 从未领取过（没有快照/bucket）→ 显示 0，而不是按默认赠送额度算成 2
+      u.adRemaining = hasRemaining
+        ? Math.max(0, Number(usage.remaining) || 0)
+        : (usage.bucket ? Math.max(0, freeTimes + bonus - used) : 0);
       const until = u.userInfo && u.userInfo.adExemptUntil;
       const permanent = until === 0 || until === '0';
       const daysLeft = Number(until) > Date.now() ? Math.ceil((Number(until) - Date.now()) / 86400000) : 0;

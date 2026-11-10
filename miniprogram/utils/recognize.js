@@ -96,6 +96,9 @@ function readMeowidConfig(recognize) {
 // ============================================================
 // 识别次数 / 激励广告计数（识猫页与投喂页共用同一份，避免两个页面各算各的）
 // ============================================================
+// 静态引用请求模块：函数内动态 require 在微信编译后可能取不到，导致永远回退本地计数
+const requestModule = require('./request.js');
+
 const AD_USAGE_KEY = 'recognize-ad-usage';
 
 /**
@@ -112,22 +115,37 @@ const AD_USAGE_KEY = 'recognize-ad-usage';
 async function fetchAdUsage(reset) {
   const bucket = adBucketKey(reset, Date.now());
   try {
-    const request = require('./request.js');
-    const res = await request.post('/api/recognize/usage', { action: 'get' });
+    const res = await requestModule.post('/api/recognize/usage', { action: 'get' });
     const server = res && res.usage;
     if (!server || !server.bucket) return readAdUsage(reset);
-    if (server.bucket !== bucket) {
-      // 服务端还是上个周期（昨天/上周）的计数：新周期重新开始，先把本地也翻新
-      const fresh = { bucket, used: 0, ads: 0, bonus: 0 };
-      writeAdUsage(fresh);
-      return fresh;
-    }
-    const usage = {
+    const readServer = () => ({
       bucket,
       used: Number(server.used) || 0,
       ads: Number(server.ads) || 0,
       bonus: Number(server.bonus) || 0,
-    };
+    });
+    if (server.bucket !== bucket) {
+      // 只有「同一重置策略下的旧周期」才归零：
+      //   daily  → 服务端是 dYYYY-MM-DD 且不是今天
+      //   weekly → 服务端是 wYYYY-MM-DD 且不是本周
+      //   never  → 永不归零
+      // 其它情况（例如管理员用旧版本按 d 写入、而当前策略是 never）
+      // 说明只是 bucket 口径不同，沿用服务端数字，避免把管理员设置覆盖掉。
+      const stale = reset === 'weekly'
+        ? /^w\d{4}-\d{2}-\d{2}$/.test(server.bucket) && server.bucket !== bucket
+        : (reset === 'daily' ? /^d\d{4}-\d{2}-\d{2}$/.test(server.bucket) && server.bucket !== bucket : false);
+      if (stale) {
+        const fresh = { bucket, used: 0, ads: 0, bonus: 0 };
+        writeAdUsage(fresh);
+        syncAdUsageToServer(fresh);
+        return fresh;
+      }
+      const migrated = readServer();
+      writeAdUsage(migrated);
+      syncAdUsageToServer(migrated); // 把 bucket 迁到当前口径，之后两端一致
+      return migrated;
+    }
+    const usage = readServer();
     writeAdUsage(usage);
     return usage;
   } catch (error) {

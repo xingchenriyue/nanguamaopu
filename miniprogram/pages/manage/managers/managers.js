@@ -6,6 +6,7 @@ import api from "../../../utils/cloudApi";
 import { signCosUrl, isWriteOk } from "../../../utils/common";
 import { isDemoMode } from "../../../utils/demo";
 import { initLayout, getGlobalSettings } from "../../../utils/page";
+import { adBucketKey } from "../../../utils/recognize";
 import { getPageMetrics } from "../../../utils/layout";
 
 // 是否正在加载
@@ -25,6 +26,7 @@ Page({
     managerOnly: false,
     loggedinOnly: false,   // 只看登录用户（有昵称 + 有头像）
     adFreeTimes: 2,        // 识猫每天赠送次数（来自页面配置，用于算「剩余识别次数」）
+    adReset: 'daily',      // 识别次数重置策略（与识猫页同一份配置，决定 bucket）
     // 「设置剩余识猫次数」弹窗状态
     adRemainingModal: { show: false, index: -1, current: 0, value: '' },
     users: [],
@@ -48,7 +50,11 @@ Page({
     // 识猫「每天赠送次数」影响每人剩余次数的换算，先读页面配置
     const ads = await getGlobalSettings('ads', { nocache: true }) || {};
     const freeTimes = parseInt(ads.recognize_free_times, 10);
-    this.setData({ adFreeTimes: Number.isFinite(freeTimes) && freeTimes >= 1 ? freeTimes : 2 });
+    const reset = ['daily', 'weekly', 'never'].indexOf(String(ads.recognize_ad_reset)) >= 0 ? String(ads.recognize_ad_reset) : 'daily';
+    this.setData({
+      adFreeTimes: Number.isFinite(freeTimes) && freeTimes >= 1 ? freeTimes : 2,
+      adReset: reset,
+    });
     if (await checkAuth(this, 99)) {
       await this.loadUsers(true);
       this.getHeights();
@@ -138,14 +144,11 @@ Page({
     }
     // 附加识猫次数 / 免广告的展示字段（wxml 里不写复杂表达式）
     const freeTimes = Number(this.data.adFreeTimes) || 2;
-    const today = (() => {
-      const d = new Date();
-      return 'd' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    })();
+    // 与识猫页共用同一套 bucket 算法，避免两边口径不一致导致「管理页显示剩余、识猫页显示另一套」
+    const bucketNow = adBucketKey(this.data.adReset || 'daily', Date.now());
     for (const u of users) {
       const usage = u.recognizeUsage || {};
-      // 跨天（或跨周/永久桶）时，快照已过期，按 0 展示更接近真实
-      const stale = usage.bucket && usage.bucket !== 'forever' && usage.bucket.charAt(0) === 'd' && usage.bucket !== today;
+      const stale = !!usage.bucket && usage.bucket !== bucketNow;
       const used = stale ? 0 : (Number(usage.used) || 0);
       const ads = stale ? 0 : (Number(usage.ads) || 0);
       const bonus = stale ? 0 : (Number(usage.bonus) || 0);
@@ -267,10 +270,10 @@ Page({
       nextBonus = bonus + (target - total);
       nextUsed = 0;
     }
-    const d = new Date();
-    const bucket = 'd' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    // bucket 必须与识猫页同一个算法（按当前重置策略），否则识猫页会判成「上个周期」而把剩余清零
+    const bucket = adBucketKey(this.data.adReset || 'daily', Date.now());
     const nextUsage = Object.assign({}, usage, {
-      bucket: usage.bucket || bucket,
+      bucket,
       used: nextUsed,
       bonus: nextBonus,
       updatedAt: Date.now(),

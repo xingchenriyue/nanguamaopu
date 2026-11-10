@@ -128,6 +128,8 @@
 </block>
 
 <!-- 未授权提示 -->
+<no-auth wx:else tip-text="{{tipText}}"></no-auth>
+
 <!-- 设置剩余识猫次数：页面内自绘弹窗，输入框直接可见可填 -->
 <view class="modal-mask" wx:if="{{adRemainingModal.show}}" catchtouchmove="true">
   <view class="modal-box">
@@ -141,4 +143,3 @@
   </view>
 </view>
 
-<no-auth wx:else tip-text="{{tipText}}"></no-auth>

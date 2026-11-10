@@ -25,6 +25,8 @@ Page({
     managerOnly: false,
     loggedinOnly: false,   // 只看登录用户（有昵称 + 有头像）
     adFreeTimes: 2,        // 识猫每天赠送次数（来自页面配置，用于算「剩余识别次数」）
+    // 「设置剩余识猫次数」弹窗状态
+    adRemainingModal: { show: false, index: -1, current: 0, value: '' },
     users: [],
     // 内层滚动区可用高度（由 initLayout 注入：视口高度 - 毛玻璃顶栏）
     windowHeight: "300",
@@ -215,7 +217,8 @@ Page({
    * 换算逻辑：保持 daily 赠送 base 不动，调 used；剩余超过总额时提高 bonus。
    * 写 user.recognizeUsage（jsonb），与识猫页上报的快照是同一个字段。
    */
-  async setAdRemaining(e) {
+  // 打开「设置剩余识猫次数」弹窗（页面内自绘，输入框直接可见可填）
+  setAdRemaining(e) {
     const index = e.currentTarget.dataset.index;
     const user = this.data.users[index];
     if (!user) return;
@@ -224,20 +227,34 @@ Page({
     const used = Number(usage.used) || 0;
     const bonus = Number(usage.bonus) || 0;
     const current = Math.max(0, freeTimes + bonus - used);
-
-    const res = await wx.showModal({
-      title: '设置剩余识猫次数',
-      content: '当前剩余 ' + current + ' 次',
-      editable: true,
-      placeholderText: '输入要设置的剩余次数（0 表示用光）',
-      confirmText: '保存',
+    this.setData({
+      adRemainingModal: { show: true, index, current, value: String(current) },
     });
-    if (!res.confirm) return;
-    const target = parseInt(String(res.content || '').trim(), 10);
-    if (!Number.isFinite(target) || target < 0) {
+  },
+
+  onAdRemainingInput(e) {
+    this.setData({ 'adRemainingModal.value': e.detail.value });
+  },
+
+  closeAdRemaining() {
+    this.setData({ adRemainingModal: { show: false, index: -1, current: 0, value: '' } });
+  },
+
+  async confirmAdRemaining() {
+    const modal = this.data.adRemainingModal || {};
+    const index = modal.index;
+    const user = this.data.users[index];
+    if (!user) return;
+    const raw = String(modal.value || '').trim();
+    const target = parseInt(raw, 10);
+    if (raw === '' || !Number.isFinite(target) || target < 0) {
       wx.showToast({ icon: 'none', title: '请输入不小于 0 的整数' });
       return;
     }
+    const freeTimes = Number(this.data.adFreeTimes) || 2;
+    const usage = user.recognizeUsage || {};
+    const used = Number(usage.used) || 0;
+    const bonus = Number(usage.bonus) || 0;
     const total = freeTimes + bonus;
     let nextUsed;
     let nextBonus;
@@ -273,6 +290,7 @@ Page({
       ['users[' + index + '].adUsed']: nextUsed,
       ['users[' + index + '].adSeen']: Number(usage.ads) || 0,
       ['users[' + index + '].adRemaining']: target,
+      adRemainingModal: { show: false, index: -1, current: 0, value: '' },
     });
     wx.showToast({ title: '已设置为剩余 ' + target + ' 次' });
   },

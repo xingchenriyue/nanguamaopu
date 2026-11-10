@@ -128,4 +128,17 @@
 </block>
 
 <!-- 未授权提示 -->
+<!-- 设置剩余识猫次数：页面内自绘弹窗，输入框直接可见可填 -->
+<view class="modal-mask" wx:if="{{adRemainingModal.show}}" catchtouchmove="true">
+  <view class="modal-box">
+    <view class="modal-title">设置剩余识猫次数</view>
+    <view class="modal-tip">当前剩余 {{adRemainingModal.current}} 次</view>
+    <input class="modal-input" type="number" focus="{{adRemainingModal.show}}" value="{{adRemainingModal.value}}" bindinput="onAdRemainingInput" placeholder="输入要设置的剩余次数" />
+    <view class="modal-actions">
+      <view class="modal-btn" bindtap="closeAdRemaining">取消</view>
+      <view class="modal-btn primary" bindtap="confirmAdRemaining">保存</view>
+    </view>
+  </view>
+</view>
+
 <no-auth wx:else tip-text="{{tipText}}"></no-auth>

@@ -96,8 +96,9 @@ function readMeowidConfig(recognize) {
 // ============================================================
 // 识别次数 / 激励广告计数（识猫页与投喂页共用同一份，避免两个页面各算各的）
 // ============================================================
-// 静态引用请求模块：函数内动态 require 在微信编译后可能取不到，导致永远回退本地计数
-const requestModule = require('./request.js');
+// 用标准 import 引入请求模块：模块内动态 require 在微信编译产物里可能取不到，
+// 会导致读取/上报次数永远失败，页面只能显示本地旧值（管理页改了也不生效）。
+import { post as httpPost } from './request';
 
 const AD_USAGE_KEY = 'recognize-ad-usage';
 
@@ -115,7 +116,7 @@ const AD_USAGE_KEY = 'recognize-ad-usage';
 async function fetchAdUsage(reset) {
   const bucket = adBucketKey(reset, Date.now());
   try {
-    const res = await requestModule.post('/api/recognize/usage', { action: 'get' });
+    const res = await httpPost('/api/recognize/usage', { action: 'get' });
     const server = res && res.usage;
     if (!server || !server.bucket) return readAdUsage(reset);
     const readServer = () => ({

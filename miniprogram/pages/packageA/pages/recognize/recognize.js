@@ -96,10 +96,14 @@ Page({
     }
     // banner 只在 custom 模式展示；激励视频两种模式都可能用到（识别次数门禁）
     const ads = await getGlobalSettings('ads', { nocache: true }) || {};
+    // 激励视频广告位：复用「打赏投喂页」的 reward_video（同一个广告位，不用重复创建）；
+    // 如果单独配了 recognize_video 则优先用它，方便日后拆开。
+    const hasOwn = ads.recognize_video && ads.recognize_video !== 'your_ad_id' && String(ads.recognize_video).trim();
+    const videoUnitId = hasOwn ? ads.recognize_video : ads.reward_video;
     // 次数与广告位全部由页面配置（setting.pages.ads）决定，改库即生效
     this.setData({ ad: {
       banner: ads.recognize_banner,
-      video: ads.recognize_video,
+      video: videoUnitId,
       freeTimes: ads.recognize_free_times,
       bonus: ads.recognize_ad_bonus,
       reset: ads.recognize_ad_reset,

@@ -225,7 +225,7 @@ module.exports = {
     },
     "recognize_video": {
       type: "text",
-      tip: "识猫页激励视频广告ID（识猫满「免费识别次数」后要看一次）",
+      tip: "识猫页专用激励视频广告ID（留空则直接复用下方「打赏投喂页激励广告ID」，一般不用填）",
       default: "your_ad_id"
     },
     "recognize_free_times": {
@@ -251,7 +251,7 @@ module.exports = {
     },
     "reward_video": {
       type: "text",
-      tip: "打赏投喂页激励广告ID",
+      tip: "打赏投喂页激励广告ID（识猫页也复用这个广告位；填一次即可）",
       default: "your_ad_id"
     },
     "reward_video_bonus": {

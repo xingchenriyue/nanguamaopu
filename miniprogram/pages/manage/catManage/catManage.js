@@ -356,6 +356,19 @@ Page({
       return;
     }
     wx.chooseLocation({
+      // 未在公众平台申请「位置信息」接口权限时，chooseLocation 会直接 fail；
+      // 这里给出明确提示，而不是让用户点了没反应。
+      fail: (err) => {
+        console.warn('[catManage] chooseLocation fail', err);
+        const msg = String((err && err.errMsg) || '');
+        wx.showModal({
+          title: '无法选择位置',
+          content: /auth|deny|permission|scope/i.test(msg)
+            ? '位置权限未授权。请在小程序设置里允许位置信息后重试。'
+            : '当前小程序还没有开通「位置信息」接口权限，暂时无法在地图上选点。可联系管理员在微信公众平台申请。',
+          showCancel: false,
+        });
+      },
       success: (res) => {
         wx.showModal({
           title: '地点名称',

@@ -142,6 +142,13 @@ Page({
     wx.showLoading({ title: '定位中...' });
     wx.getFuzzyLocation({
       type: 'wgs84',
+      // 没有位置接口权限时不要让加载圈一直转：提示后按「不带位置」继续
+      fail(err) {
+        console.warn('[addPhoto] getFuzzyLocation fail', err);
+        wx.hideLoading();
+        wx.showToast({ icon: 'none', title: '未开启定位，可手动选点或直接上传', duration: 2500 });
+        that.openMapPicker();
+      },
       success(res) {
         wx.hideLoading();
         that.setData({

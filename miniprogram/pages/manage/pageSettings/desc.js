@@ -254,6 +254,11 @@ module.exports = {
       tip: "打赏投喂页激励广告ID",
       default: "your_ad_id"
     },
+    "reward_video_bonus": {
+      type: "text",
+      tip: "投喂罐头页看完激励视频赠送的识别次数（整数，0=不赠送，默认 1）",
+      default: "1"
+    },
     "badge_video": {
       type: "text",
       tip: "获取代币页激励广告ID",

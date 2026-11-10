@@ -15,14 +15,13 @@ import {
 import drawUtils from "../../../../utils/draw";
 import { signPhotoUrls } from  "../../../../utils/cat";
 import api from "../../../../utils/cloudApi";
-import { getRecognizeMode } from "../../../../utils/recognize";
+import { getRecognizeMode, readAdUsage, writeAdUsage } from "../../../../utils/recognize";
 import { getUser, getUserType } from "../../../../utils/user";
 
 const share_text = text_cfg.app_name + ' - ' + text_cfg.recognize.share_tip;
 // 免费识别次数：连续识别满 AD_FREE_TIMES 次后，下一次需要看完一次激励视频
 const AD_DEFAULT_FREE = 2;   // 免费次数默认值（可在页面配置改）
 const AD_DEFAULT_BONUS = 2;  // 看一次广告增加的次数默认值（可在页面配置改）
-const AD_USAGE_KEY = 'recognize-ad-usage';
 const app = getApp();
 Page({
 
@@ -201,28 +200,13 @@ Page({
     };
   },
 
-  /** 计数桶：按重置策略决定什么时候清零（本地日期，避免 UTC 偏移到前一天） */
-  adBucket(reset, now) {
-    const d = new Date(now);
-    const dayKey = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
-    if (reset === 'never') return 'forever';
-    if (reset === 'weekly') {
-      const day = (d.getDay() + 6) % 7; // 周一 = 0
-      return 'w' + dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - day));
-    }
-    return 'd' + dayKey(d);
-  },
-
+  // 计数读写统一走 utils/recognize.js（与投喂页共享同一份计数）
   adUsage() {
-    const cfg = this.adConfig();
-    const bucket = this.adBucket(cfg.reset, Date.now());
-    const saved = wx.getStorageSync(AD_USAGE_KEY) || {};
-    if (!saved || saved.bucket !== bucket) return { bucket, used: 0, ads: 0, bonus: 0 };
-    return { bucket, used: Number(saved.used) || 0, ads: Number(saved.ads) || 0, bonus: Number(saved.bonus) || 0 };
+    return readAdUsage(this.adConfig().reset);
   },
 
   saveAdUsage(usage) {
-    wx.setStorageSync(AD_USAGE_KEY, usage);
+    writeAdUsage(usage);
   },
 
   /** 是否免广告：单用户到期时间（人员管理页设置）+ 页面配置的免广告人群 */

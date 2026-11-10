@@ -93,6 +93,54 @@ function readMeowidConfig(recognize) {
   };
 }
 
+// ============================================================
+// 识别次数 / 激励广告计数（识猫页与投喂页共用同一份，避免两个页面各算各的）
+// ============================================================
+const AD_USAGE_KEY = 'recognize-ad-usage';
+
+/** 计数桶：按重置策略决定什么时候清零（本地日期，避免 UTC 偏移到前一天） */
+function adBucketKey(reset, now) {
+  const d = new Date(now || Date.now());
+  const dayKey = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  if (reset === 'never') return 'forever';
+  if (reset === 'weekly') {
+    const day = (d.getDay() + 6) % 7; // 周一 = 0
+    return 'w' + dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - day));
+  }
+  return 'd' + dayKey(d);
+}
+
+/** 读取当前计数；bucket 变化（跨天/跨周）自动视为 0 */
+function readAdUsage(reset) {
+  const bucket = adBucketKey(reset, Date.now());
+  let saved = null;
+  try { saved = wx.getStorageSync(AD_USAGE_KEY); } catch (e) { saved = null; }
+  if (!saved || saved.bucket !== bucket) return { bucket, used: 0, ads: 0, bonus: 0 };
+  return {
+    bucket,
+    used: Number(saved.used) || 0,
+    ads: Number(saved.ads) || 0,
+    bonus: Number(saved.bonus) || 0,
+  };
+}
+
+function writeAdUsage(usage) {
+  try { wx.setStorageSync(AD_USAGE_KEY, usage); } catch (e) { console.warn('[recognize] 保存识别次数失败', e); }
+}
+
+/**
+ * 增加识别次数（看激励视频后调用）。
+ * 只加 bonus，不动 used / ads —— 投喂页的广告不算「识猫页看广告次数」。
+ */
+function addRecognizeBonus(count, reset) {
+  const add = Number(count) || 0;
+  if (add <= 0) return readAdUsage(reset);
+  const usage = readAdUsage(reset);
+  usage.bonus += add;
+  writeAdUsage(usage);
+  return usage;
+}
+
 function getRecognizeMode(settings) {
   if (!settings) return 'off';
   const mode = settings.mode;
@@ -118,6 +166,11 @@ function normalizeRecognizeResponse(response, mode) {
 }
 
 module.exports = {
+  AD_USAGE_KEY,
+  adBucketKey,
+  readAdUsage,
+  writeAdUsage,
+  addRecognizeBonus,
   getRecognizeMode,
   normalizeRecognizeResponse,
   MEOWID_CONFIG_TARGET,

@@ -4,6 +4,7 @@ import { text as text_cfg, reward_img } from "../../../config";
 import { checkCanReward } from "../../../utils/user";
 import { getGlobalSettings } from "../../../utils/page";
 import { signCosUrl } from "../../../utils/common";
+import { addRecognizeBonus } from "../../../utils/recognize";
 const share_text = text_cfg.app_name + ' - ' + text_cfg.reward.share_tip;
 const app = getApp();
 Page({
@@ -33,6 +34,9 @@ Page({
 
     // 设置广告ID
     const ads = await getGlobalSettings('ads') || {};
+    // 看完这条广告赠送的识猫次数（0 = 不赠送），与识猫页共用同一份次数计数
+    this.jsData.adReset = ads.recognize_ad_reset || 'daily';
+    this.jsData.recognizeBonus = Math.max(0, parseInt(ads.reward_video_bonus, 10) || 0);
     // 在页面onLoad回调事件中创建激励视频广告实例
     var that = this;
     if (wx.createRewardedVideoAd) {
@@ -53,11 +57,16 @@ Page({
         // 用户点击了【关闭广告】按钮
         var toast = text_cfg.reward.ad_success_tip;
         var icon = 'success';
-        if (res && res.isEnded) {
-          // 正常播放结束
+        const ended = !!(res && res.isEnded);
+        if (ended) {
+          // 正常播放结束：按页面配置赠送识猫次数（与识猫页共享计数，跨页生效）
+          const bonus = this.jsData.recognizeBonus || 0;
+          if (bonus > 0) {
+            addRecognizeBonus(bonus, this.jsData.adReset || 'daily');
+            toast = '已赠送 ' + bonus + ' 次识猫机会';
+          }
         } else {
           // 播放中途退出
-          toast = text_cfg.reward.ad_success_tip;
           icon = 'error';
         }
         wx.showToast({

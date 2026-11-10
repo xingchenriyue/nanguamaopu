@@ -1,82 +1,106 @@
-# :pencil:中大猫谱（南瓜猫谱）
+# 南瓜猫谱（nanguamaopu）
 
-*——拍照记录校园内猫猫的成长轨迹* :cat::smiley_cat::heart_eyes_cat:
+校园流浪猫图鉴微信小程序。记录校园里的每一只猫：照片、性格、常出没地点、关系图谱、领养与绝育状态，
+还能在校园里随手拍一张照片，让小程序帮你认出它是谁。
 
-## 主要功能
-**猫猫档案**：创建校园猫猫资料档案，猫猫相册，精选瀑布流。
+> 数据后端自建：Node.js + PostgreSQL + 阿里云 OSS，见 `nanguamaopu-backend` 仓库。
 
-<img src="https://user-images.githubusercontent.com/8966971/212461452-8a99397b-4e0e-4f0c-bdeb-64b0f7170c53.jpg" height = "200"/>
+---
 
-**用户交互**：用户可以上传照片，发表留言，点赞照片或反馈信息。
+## 功能
 
-<img src="https://user-images.githubusercontent.com/8966971/212461438-f93a6740-c574-44ae-a2bf-b490ffa6dcfe.jpg" height = "200"/>
+| 模块 | 说明 |
+|---|---|
+| 猫猫图鉴 | 猫猫列表、筛选（校区/区域/花色/状态）、详情相册、关系图谱 |
+| 拍照识猫 | 拍一张照片，返回最相似的几只猫；次数与激励视频可在页面配置里调 |
+| 照片墙 | 上传、审核、精选、点赞、打赏投喂 |
+| 便利贴 | 在猫猫详情页留言、回复、审核 |
+| 徽章成就 | 拍照、便利贴、普查等成就，收集榜与月榜，个人主页可展示徽章 |
+| 猫猫地图 | 校园地图上展示猫猫分布与常出没地点 |
+| 管理后台 | 小程序内管理：审核、人员权限、页面配置、识猫服务、徽章码 |
 
-**丰富功能**：包括拍照识猫，查看科普信息、公告文章等丰富功能。
+---
 
-<img src="https://user-images.githubusercontent.com/8966971/212461458-ffda9eb6-5862-4846-bd57-09102ec0c84a.jpg" height = "200"/>
+## 快速开始
 
-**管理后台**：部署完成后，资料管理、照片审核等操作均在小程序端完成。
+### 1. 改一个文件
 
-<img src="https://user-images.githubusercontent.com/8966971/212461459-d9600a11-f01c-4837-81af-47794c39dd62.jpg" height = "200"/>
+打开 `miniprogram/config.js`，填这几项就够了（其余保持默认）：
 
-## 体验一下
-打开微信，扫码或搜索“南瓜猫谱”（原名中大猫谱，23年底更名）。
+| 字段 | 填什么 |
+|---|---|
+| `API_BASE_URL` | 你的后端 HTTPS 域名 |
+| `app_id` | 小程序 AppID |
+| `OSS_BUCKET` / `OSS_EXTERNAL_ENDPOINT` | 你的 OSS 桶与 Endpoint |
+| `OSS_USE_CNAME` / `OSS_CNAME_ENDPOINT` | 用自定义域名读图才需要 |
+| `map_center` | 你学校的坐标 |
+| `OFFLINE_DEMO_MODE` | 正式部署填 `false` |
 
-<img src="./readme/maopu_duxing.png" height = "150" alt="南瓜猫谱菊花码" />
+### 2. 换一张 LOGO
 
-### 朋友们的小程序
+替换 `miniprogram/pages/public/images/system/logo.png`（建议 200x200 PNG，透明背景）。
 
-|小程序|高校|二维码|小程序|高校|二维码|
-|:----:|:----:|:----:|:----:|:----:|:----:|
-|CQGCZY小猫之家|重庆工程职业技术学院|<img src="./readme/maopu_cqgc.jpg" height = "100" />|莲峰猫谱|电子科技大学中山学院|<img src="./readme/maopu_lianfeng.png" height = "100" />|
-|昆院猫谱|昆明学院KMU|<img src="./readme/maopu_kunyuan.jpg" height = "100" />|猫猫家谱|暨南大学|<img src="./readme/maopu_jiapu.jpg" height = "100" />|
-|火大猫谱|火箭军工程大学|<img src="./readme/maopu_huoda.png" height = "100" />|CW猫咪图鉴|重庆外语外事学院|<img src="./readme/maopu_cw.jpg" height = "100" />|
-|龙井是公猫|广东药科大学|<img src="./readme/maopu_longjing.png" height = "100" />|技大喵喵屋|深圳技术大学|<img src="./readme/maopu_jida.jpg" height = "100" />|
-|招财喵谱|上海财经大学|<img src="./readme/maopu_zhaocai.jpg" height = "100" />|崴喵猫谱|山东大学（威海）|<img src="./readme/maopu_weimao.png" height = "100" />|
-|可每猫咪|河海大学|<img src="./readme/maopu_kemei.jpg" height = "100" />|喵汪图鉴|湖南大学|<img src="./readme/maopu_miaowang.jpeg" height = "100" />|
-|青猫图鉴|青岛大学|<img src="./readme/maopu_qingmao.png" height = "100" />|小理猫谱|广州理工学院|<img src="./readme/maopu_xiaoli.jpg" height = "100" />|
-|一喵九鼎图鉴|河南科技大学|<img src="./readme/maopu_jiuding.jpg" height = "100" />|财猫之家|浙江财经大学|<img src="./readme/maopu_caimao.png" height = "100" />|
+### 3. 安装依赖
 
+```bash
+cd miniprogram
+npm install
+```
 
-如果，你所在校园（/社团/小区...）的猫猫:smile_cat:也盼望拥有一份属于自己的猫猫档案，请你跟随下一章节的指引，为它们部署、发布一份独特的猫谱小程序。
+然后在微信开发者工具里点 **工具 → 构建 npm**。
 
-部署完成后，可以邀请你的朋友帮忙管理猫猫信息。我们为此准备了【猫谱-管理员手册】，信息管理无需接触代码。
+### 4. 部署后端
 
-部署过程中遇到任何问题，可以：
-* 加入猫谱技术交流QQ群：956808218
-* 在GitHub页面提issue
+见后端仓库的 `docs/DEPLOY.md`：`bash deploy/install.sh` 一条命令完成建库建表与启动。
 
-## 资料整理
-|资料名|类型|链接|
-|:----:|:----:|:----:|
-|猫谱-部署文档|文档|https://docs.qq.com/doc/DSE1vd0p3RERvWXJS|
-|猫谱-管理员手册|文档|https://docs.qq.com/doc/DSEl0aENOSEx5cmtE|
-|可选的 MeowID 云端识猫方案|贡献|./contrib-meowid-recognition/README.md|
+---
 
-> 可选扩展：需要托管识猫后端时，参考 [contrib-meowid-recognition](./contrib-meowid-recognition/README.md)，内含接入指南、API 速查与云函数实现。
+## 目录结构
 
-# :scroll:部署
+```
+miniprogram/
+  app.js / app.json / app.wxss   全局入口与配置
+  config.js                      【唯一需要改的文件】域名、AppID、OSS、文案、地图中心
+  utils/                         请求封装、数据层 facade、缓存、布局、识别、OSS 等
+  components/                    毛玻璃导航栏、猫猫卡片、日历、弹窗等
+  pages/                         主包：首页、猫谱、地图、关于、排行榜
+  pages/packageA/                分包：识猫、徽章、各类详情
+  pages/manage/                  分包：管理后台（审核/人员/页面配置）
+  pages/genealogy/               分包：猫猫详情、上传、便利贴、反馈
+  pages/info/                    分包：个人主页、成就、反馈、协议
+```
 
-:smirk_cat:*无需从零开始，只要一些耐心。*
+---
 
-EMAS版暂时没有录制部署视频，部署流程请参考：[猫谱EMAS版文档](https://docs.qq.com/doc/DSE1vd0p3RERvWXJS)
+## 开发要点
 
-注：考虑到Laf平台不再维护，迁移到阿里云的EMAS Serverless平台，比较稳定。费用每个月：EMAS后端5元左右，腾讯云COS存照片约5元左右。
+- **配置集中在 `config.js`**：域名、OSS、文案、地图中心、开关都在这里，页面不写死
+- **数据层 facade**：`utils/api.js` + `utils/db.js` 把后端接口包成 EMAS 风格，业务代码改动小
+- **毛玻璃导航**：`components/glass-nav` 统一顶栏；页面用 `initLayout()` 取占位高度
+- **缓存策略**：列表/详情走本地缓存 + 过期时间，过期后静默刷新
+- **识猫**：次数与广告由服务端快照驱动，管理员可在「人员管理」里改
 
-# :dancers:开发团队
+---
 
-本项目的开发工作100%用爱发电，特别感谢每一位为此付出的小伙伴。
+## 部署与迁移
 
-:computer:代码开发：[Zing22](https://github.com/Zing22)、[Jazon](https://github.com/jxzhn)、[Junius](https://github.com/JunDeer)、[yw](https://github.com/WondrousWisdomcard)、[Lauzeyu](https://github.com/parsifal486)、[Smileye-v](https://github.com/Smileye-v)、[xuannfx](https://github.com/xuannfx)、[LightHouse-1024](https://github.com/LightHouse-1024)、[wloop98](https://github.com/wloop98)
+| 文档 | 内容 |
+|---|---|
+| `README-配置说明.md` | 小程序端配置逐项说明 |
+| 后端 `docs/DEPLOY.md` | 从零部署（OSS、微信后台、接口权限要配什么） |
+| 后端 `docs/MIGRATION.md` | 从 EMAS 迁移数据库与图片 |
 
-:black_nib:UI设计：蓝卷、[Junius](https://github.com/JunDeer)、[yw](https://github.com/WondrousWisdomcard)、[xuannfx](https://github.com/xuannfx)
+---
 
-:notebook:资料整理：笃行志愿服务队及各校区小伙伴
+## 致敬
 
-如果你有新的想法或建议，非常欢迎你在QQ群/issue板块发起讨论，或者提交代码PR。
+这个小程序源自开源项目 **笃行猫谱（sysucats/zhongdamaopu）**，
+页面结构、交互逻辑与数据模型大量沿用上游，感谢原作者与所有贡献者。
 
-代码迁移过程非常感谢[maopu-EMAS项目](https://github.com/Smileye-v/maopu-EMAS)。
+本项目在其基础上做了：自建后端（脱离 EMAS）、拍照识猫、徽章系统、权限人群与广告次数等扩展。
 
-# :ferris_wheel:开源协议
+---
 
-本项目遵循MPL-2.0开源协议。在此基础上，如果你发布了一份新的猫谱，我们希望你能保留中大猫谱的友情链接。待你的线上版本稳定使用一段时间后，请留言告诉我们将你的友链加到中大猫谱小程序中。
+## License
+
+沿用上游的开源许可；部分页面与资源版权归上游作者所有。

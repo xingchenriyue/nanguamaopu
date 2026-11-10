@@ -2,7 +2,7 @@
 <!-- 顶部毛玻璃导航栏（返回 + 标题） -->
 <glass-nav title="小猫徽章" back="{{true}}" holder="{{false}}"></glass-nav>
   <!-- 顶部留白：让开毛玻璃顶栏，滚动时内容从其下方穿过 -->
-  <view style="height: {{navTotalHeight}}px;"></view>
+  <view style="height: {{navTotalHeight}}px; min-height: 88px;"></view>
 <view class="container">
   <view class="up-part">
     <view class="glass">

@@ -67,9 +67,12 @@ function getCapsuleRect() {
 function getNavMetrics() {
   const info = getWindowInfo();
   const rpx2px = (info.windowWidth || 375) / 750;
-  const statusBarHeight = info.statusBarHeight || 0;
-  const rowHeight = NAV_ROW_HEIGHT_PX;
   const capsule = getCapsuleRect();
+  // 某些机型 / 开发者工具拿不到 statusBarHeight，会退化成 0，
+  // 顶栏就矮一截，页面占位不足 → 内容被毛玻璃栏挡住（个人主页、徽章页曾出现）。
+  // 用胶囊按钮顶部兜底，再退到 20px。
+  const statusBarHeight = info.statusBarHeight || (capsule && capsule.top) || 20;
+  const rowHeight = NAV_ROW_HEIGHT_PX;
 
   // 顶栏总高度：状态栏 + 导航行，与原生导航栏占位一致，正文高度不变
   const bandHeight = statusBarHeight + rowHeight;

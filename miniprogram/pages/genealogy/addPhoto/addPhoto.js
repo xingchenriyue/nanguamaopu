@@ -139,10 +139,15 @@ Page({
   // 自动定位：获取当前位置后打开地图选点，供用户微调确认
   autoLocate() {
     var that = this;
+    // 基础库不支持 / 未开通位置接口时，直接走手动选点，避免抛异常中断页面
+    if (typeof wx.getFuzzyLocation !== 'function') {
+      wx.showToast({ icon: 'none', title: '当前不支持自动定位，请手动选点', duration: 2500 });
+      that.openMapPicker();
+      return;
+    }
     wx.showLoading({ title: '定位中...' });
     wx.getFuzzyLocation({
       type: 'wgs84',
-      // 没有位置接口权限时不要让加载圈一直转：提示后按「不带位置」继续
       fail(err) {
         console.warn('[addPhoto] getFuzzyLocation fail', err);
         wx.hideLoading();
@@ -160,15 +165,6 @@ Page({
         // 在自动定位的基础上打开地图，让用户微调后确认
         that.openMapPicker();
         wx.showToast({ title: '已定位，可微调后确认', icon: 'none' });
-      },
-      fail(err) {
-        wx.hideLoading();
-        console.log('[autoLocate] - 定位失败:', err);
-        wx.showModal({
-          title: '定位失败',
-          content: (err && err.errMsg) ? err.errMsg : '未知原因，请改用「地图选点」',
-          showCancel: false,
-        });
       }
     });
   },

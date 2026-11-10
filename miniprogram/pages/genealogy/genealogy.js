@@ -682,17 +682,32 @@ Page({
    */
   scrollToOnce(top) {
     const target = Math.max(0, Math.round(top));
-    // 与当前值不同才能触发；相同则先归零再设置
-    if (this.data.targetScrollTop === target) {
-      this.setData({ targetScrollTop: 0 }, () => {
-        this.setData({ targetScrollTop: target });
+    // 【为什么改用 ScrollViewContext】
+    // 之前用 scroll-top 数据绑定 + 「设目标值再归零」，但归零本身也是一次滚动指令，
+    // 会把列表瞬间拉回顶部 —— 表现为「展开下面一只、再点上面一只就回到顶部」。
+    // ScrollViewContext.scrollTo 是一次性的原生滚动，不依赖数据绑定，不会残留。
+    const fallback = () => {
+      this.setData({ targetScrollTop: target }, () => {
+        // 兜底方案：滚完把绑定值同步为真实位置，避免下次判定时再「先归零」
+        wx.nextTick(() => this.setData({ targetScrollTop: target }));
       });
-      return;
+    };
+    try {
+      wx.createSelectorQuery()
+        .select('.cards')
+        .node((res) => {
+          const node = res && res.node;
+          if (node && typeof node.scrollTo === 'function') {
+            node.scrollTo({ top: target, animated: true, duration: 300 });
+          } else {
+            fallback();
+          }
+        })
+        .exec();
+    } catch (e) {
+      console.warn('[genealogy] scrollTo 失败，回退数据绑定', e);
+      fallback();
     }
-    this.setData({ targetScrollTop: target }, () => {
-      // 归零，解除持续绑定（用 0 与目标值不同，确保 setData 生效）
-      this.setData({ targetScrollTop: 0 });
-    });
   },
 
   // 跳转详情页：cat 存在时先写入 globalData，详情页 onLoad 同步读取、立即渲染首屏，

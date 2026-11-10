@@ -76,7 +76,7 @@
           <view class="recognize-usage">
             <text>已识别 {{item.adUsed || 0}} 次</text>
             <text>看广告 {{item.adSeen || 0}} 次</text>
-            <text>剩 {{item.adRemaining || 0}} 次</text>
+            <text class="ad-remaining" data-index="{{index}}" bindtap="setAdRemaining">剩 {{item.adRemaining || 0}} 次（点击设置）</text>
           </view>
 
           <!-- 行2: 地图权限开关 + 更新按钮 -->

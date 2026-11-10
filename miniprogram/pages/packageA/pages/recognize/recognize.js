@@ -325,10 +325,13 @@ Page({
    */
   async ensureLoginForRecognize() {
     try {
-      const openid = await api.getOpenid();
+      // ⚠️ 这里用的是 cloudApi 的封装（api 是 cloudApi，不是 utils/api.js），
+      // 它导出的是 getCurrentUserOpenid；之前误写成 api.getOpenid 会抛 TypeError，
+      // 被 catch 后误判成「未登录」，于是已登录用户也一直弹登录框。
+      const openid = await api.getCurrentUserOpenid();
       if (openid) return true;
     } catch (error) {
-      console.warn('[recognize] 静默登录失败', error);
+      console.warn('[recognize] 登录态检查失败', error);
     }
     this.setData({ recognitionMessage: '识别猫猫需要先登录，请重新进入小程序后再试' });
     wx.showModal({

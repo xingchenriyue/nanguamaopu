@@ -211,6 +211,73 @@ Page({
 
   // 管理员等级 picker 变动
   /**
+   * 手动设置某个用户的「剩余识猫次数」。
+   * 换算逻辑：保持 daily 赠送 base 不动，调 used；剩余超过总额时提高 bonus。
+   * 写 user.recognizeUsage（jsonb），与识猫页上报的快照是同一个字段。
+   */
+  async setAdRemaining(e) {
+    const index = e.currentTarget.dataset.index;
+    const user = this.data.users[index];
+    if (!user) return;
+    const freeTimes = Number(this.data.adFreeTimes) || 2;
+    const usage = user.recognizeUsage || {};
+    const used = Number(usage.used) || 0;
+    const bonus = Number(usage.bonus) || 0;
+    const current = Math.max(0, freeTimes + bonus - used);
+
+    const res = await wx.showModal({
+      title: '设置剩余识猫次数',
+      content: '当前剩余 ' + current + ' 次',
+      editable: true,
+      placeholderText: '输入要设置的剩余次数（0 表示用光）',
+      confirmText: '保存',
+    });
+    if (!res.confirm) return;
+    const target = parseInt(String(res.content || '').trim(), 10);
+    if (!Number.isFinite(target) || target < 0) {
+      wx.showToast({ icon: 'none', title: '请输入不小于 0 的整数' });
+      return;
+    }
+    const total = freeTimes + bonus;
+    let nextUsed;
+    let nextBonus;
+    if (target <= total) {
+      nextUsed = total - target;
+      nextBonus = bonus;
+    } else {
+      nextBonus = bonus + (target - total);
+      nextUsed = 0;
+    }
+    const d = new Date();
+    const bucket = 'd' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const nextUsage = Object.assign({}, usage, {
+      bucket: usage.bucket || bucket,
+      used: nextUsed,
+      bonus: nextBonus,
+      updatedAt: Date.now(),
+    });
+    let result;
+    try {
+      result = await api.curdOp({ operation: 'update', collection: 'user', item_id: user._id, data: { recognizeUsage: nextUsage } });
+    } catch (error) {
+      console.error('[managers] 设置剩余次数失败', error);
+      wx.showToast({ icon: 'none', title: '保存失败，请重试' });
+      return;
+    }
+    if (!isWriteOk(result)) {
+      wx.showToast({ icon: 'none', title: '保存失败（服务端未命中记录）' });
+      return;
+    }
+    this.setData({
+      ['users[' + index + '].recognizeUsage']: nextUsage,
+      ['users[' + index + '].adUsed']: nextUsed,
+      ['users[' + index + '].adSeen']: Number(usage.ads) || 0,
+      ['users[' + index + '].adRemaining']: target,
+    });
+    wx.showToast({ title: '已设置为剩余 ' + target + ' 次' });
+  },
+
+  /**
    * 设置单个用户的「免看识猫广告」权限。
    * 写进 user.userInfo.adExemptUntil（jsonb，不新增列）：0 = 永久，时间戳 = 到期时间，
    * 删除该键 = 取消免广告。识猫页读它决定是否跳过识别次数门禁。

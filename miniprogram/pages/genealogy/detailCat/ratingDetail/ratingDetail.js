@@ -1,5 +1,5 @@
 const apiDb = require('../../../../utils/api.js').db;
-import { convertRatingList, genDefaultRating } from "../../../../utils/rating";
+import { convertRatingList, genDefaultRating } from "../../utils/rating";
 import api from "../../../../utils/cloudApi";
 
 const app = getApp();

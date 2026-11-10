@@ -26,7 +26,7 @@ import {
   getGlobalSettings
 } from "../../../utils/page"
 import { initLayout } from "../../../utils/page";;
-import { convertRatingList, genDefaultRating } from "../../../utils/rating";
+import { convertRatingList, genDefaultRating } from "../utils/rating";
 import { showMpcode } from "../../../utils/mpcode";
 import { signCosUrl } from "../../../utils/common";
 import api from "../../../utils/cloudApi";

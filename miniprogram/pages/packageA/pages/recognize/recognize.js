@@ -12,7 +12,7 @@ import {
   getGlobalSettings
 } from "../../../../utils/page";
 
-import drawUtils from "../../../../utils/draw";
+import drawUtils from "../../utils/draw";
 import { signPhotoUrls } from  "../../../../utils/cat";
 import api from "../../../../utils/cloudApi";
 import { getRecognizeMode, readAdUsage, writeAdUsage, fetchAdUsage, syncAdUsageToServer } from "../../../../utils/recognize";

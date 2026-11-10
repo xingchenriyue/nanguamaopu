@@ -152,9 +152,11 @@ Page({
       const used = stale ? 0 : (Number(usage.used) || 0);
       const ads = stale ? 0 : (Number(usage.ads) || 0);
       const bonus = stale ? 0 : (Number(usage.bonus) || 0);
+      // 剩余次数以快照里的 remaining 为准（管理员可直接设置），缺省按总额-已用计算
+      const hasRemaining = !stale && usage.remaining !== undefined && usage.remaining !== null;
       u.adUsed = used;
       u.adSeen = ads;
-      u.adRemaining = Math.max(0, freeTimes + bonus - used);
+      u.adRemaining = hasRemaining ? Math.max(0, Number(usage.remaining) || 0) : Math.max(0, freeTimes + bonus - used);
       const until = u.userInfo && u.userInfo.adExemptUntil;
       const permanent = until === 0 || until === '0';
       const daysLeft = Number(until) > Date.now() ? Math.ceil((Number(until) - Date.now()) / 86400000) : 0;
@@ -256,26 +258,14 @@ Page({
       wx.showToast({ icon: 'none', title: '请输入不小于 0 的整数' });
       return;
     }
-    const freeTimes = Number(this.data.adFreeTimes) || 2;
     const usage = user.recognizeUsage || {};
-    const used = Number(usage.used) || 0;
-    const bonus = Number(usage.bonus) || 0;
-    const total = freeTimes + bonus;
-    let nextUsed;
-    let nextBonus;
-    if (target <= total) {
-      nextUsed = total - target;
-      nextBonus = bonus;
-    } else {
-      nextBonus = bonus + (target - total);
-      nextUsed = 0;
-    }
-    // bucket 必须与识猫页同一个算法（按当前重置策略），否则识猫页会判成「上个周期」而把剩余清零
+    // 只设置「剩余次数」，**不动已识别次数**：
+    // 之前用 used = total - 剩余 反推，导致管理员设 0 时把「已识别」从 0 改成 5。
+    // bucket 必须与识猫页同一个算法（按当前重置策略），否则会判成「上个周期」而清零。
     const bucket = adBucketKey(this.data.adReset || 'daily', Date.now());
     const nextUsage = Object.assign({}, usage, {
       bucket,
-      used: nextUsed,
-      bonus: nextBonus,
+      remaining: target,
       updatedAt: Date.now(),
     });
     let result;
@@ -292,7 +282,6 @@ Page({
     }
     this.setData({
       ['users[' + index + '].recognizeUsage']: nextUsage,
-      ['users[' + index + '].adUsed']: nextUsed,
       ['users[' + index + '].adSeen']: Number(usage.ads) || 0,
       ['users[' + index + '].adRemaining']: target,
       adRemainingModal: { show: false, index: -1, current: 0, value: '' },

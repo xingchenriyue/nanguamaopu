@@ -124,6 +124,7 @@ async function fetchAdUsage(reset) {
       used: Number(server.used) || 0,
       ads: Number(server.ads) || 0,
       bonus: Number(server.bonus) || 0,
+      remaining: server.remaining === undefined || server.remaining === null ? null : Math.max(0, Number(server.remaining) || 0),
     });
     if (server.bucket !== bucket) {
       // 只有「同一重置策略下的旧周期」才归零：
@@ -184,12 +185,14 @@ function readAdUsage(reset) {
   const bucket = adBucketKey(reset, Date.now());
   let saved = null;
   try { saved = wx.getStorageSync(AD_USAGE_KEY); } catch (e) { saved = null; }
-  if (!saved || saved.bucket !== bucket) return { bucket, used: 0, ads: 0, bonus: 0 };
+  if (!saved || saved.bucket !== bucket) return { bucket, used: 0, ads: 0, bonus: 0, remaining: null };
   return {
     bucket,
     used: Number(saved.used) || 0,
     ads: Number(saved.ads) || 0,
     bonus: Number(saved.bonus) || 0,
+    // remaining 由管理员或识别流程显式维护；null 表示按 free+bonus-used 计算（兼容旧数据）
+    remaining: saved.remaining === undefined || saved.remaining === null ? null : Math.max(0, Number(saved.remaining) || 0),
   };
 }
 
@@ -206,6 +209,7 @@ function addRecognizeBonus(count, reset) {
   if (add <= 0) return readAdUsage(reset);
   const usage = readAdUsage(reset);
   usage.bonus += add;
+  if (usage.remaining !== null) usage.remaining += add;
   writeAdUsage(usage);
   syncAdUsageToServer(usage);
   return usage;

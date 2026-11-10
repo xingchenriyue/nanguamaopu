@@ -241,7 +241,13 @@ Page({
     const usage = await fetchAdUsage(cfg.reset);
     const exempt = await this.isAdExempt();
     const total = cfg.freeTimes + usage.bonus;
-    const remaining = exempt ? -1 : Math.max(0, total - usage.used);
+    // usage.remaining 是权威的「还可识别次数」（管理员可直接设置）；
+    // 老数据没有这个字段时按 free+bonus-used 计算，并顺手写回迁移一次。
+    if (usage.remaining === null || usage.remaining === undefined) {
+      usage.remaining = Math.max(0, total - usage.used);
+      this.saveAdUsage(usage);
+    }
+    const remaining = exempt ? -1 : usage.remaining;
     this.setData({
       adUsage: { used: usage.used, ads: usage.ads, remaining: remaining, total: total, exempt: exempt },
       adUsageText: exempt
@@ -273,6 +279,7 @@ Page({
     const usage = this.adUsage();
     usage.ads += 1;
     usage.bonus += state.cfg.bonus;
+    if (usage.remaining !== null && usage.remaining !== undefined) usage.remaining += state.cfg.bonus;
     this.saveAdUsage(usage);
     await this.refreshAdUsage();
     wx.showToast({ icon: 'none', title: '已增加 ' + state.cfg.bonus + ' 次识别', duration: 2000 });
@@ -288,6 +295,7 @@ Page({
     if (await this.isAdExempt()) return;
     const usage = this.adUsage();
     usage.used += 1;
+    if (usage.remaining !== null && usage.remaining !== undefined) usage.remaining = Math.max(0, usage.remaining - 1);
     this.saveAdUsage(usage);
     this.refreshAdUsage();
   },

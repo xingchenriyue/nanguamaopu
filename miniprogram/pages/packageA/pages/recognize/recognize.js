@@ -110,7 +110,7 @@ Page({
       exemptRoles: ads.recognize_ad_exempt_roles,
     } });
     console.log('[recognize] 广告配置', this.data.ad);
-    const usageState = await this.refreshAdUsage();
+    const usageState = await this.refreshAdUsage(true);
     // 每天首次进入识猫页时告知「今日赠送次数」，让用户知道额度从哪来
     if (usageState && !usageState.exempt) {
       const welcomeKey = 'recognize-welcome-' + usageState.usage.bucket;
@@ -235,10 +235,12 @@ Page({
   },
 
   /** 刷新「已识别 / 看广告 / 剩余次数」展示 */
-  async refreshAdUsage() {
+  async refreshAdUsage(force = false) {
     const cfg = this.adConfig();
-    // 以服务端快照为准（管理员在人员管理里改的剩余次数要立刻反映到识猫页）
-    const usage = await fetchAdUsage(cfg.reset);
+    // 以服务端快照为准；15 秒内已拉过就直接用本地（避免每次识别前都多打一次接口）
+    const cacheFresh = !force && this.jsData.usageAt && (Date.now() - this.jsData.usageAt < 15000);
+    const usage = cacheFresh ? this.adUsage() : await fetchAdUsage(cfg.reset);
+    if (!cacheFresh) this.jsData.usageAt = Date.now();
     const exempt = await this.isAdExempt();
     const total = cfg.freeTimes + usage.bonus;
     // usage.remaining 是权威的「还可识别次数」（管理员可直接设置）；

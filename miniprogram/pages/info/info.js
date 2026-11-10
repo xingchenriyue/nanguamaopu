@@ -238,12 +238,22 @@ Page({
       deleted: { $ne: 1 }
     };
 
-    const { result: numAllCats } = await apiDb.collection('cat').count(allCatQf);
-    const { result: numAllPhotos } = await apiDb.collection('photo').count(allPhotoQf);
-    const { result: numAllComments } = await apiDb.collection('comment').count(allCommentQf);
-    const { result: numSterilized } = await apiDb.collection('cat').count(sterilizedQf);
-    const { result: numAdoptQf } = await apiDb.collection('cat').count(adoptQf);
-    const { result: numCurrentCats } = await apiDb.collection('cat').count(currentCatsQf);
+    // 【性能】7 项统计互不依赖，改为并行请求（原来是串行等待，首屏要等 6~7 个来回）
+    const [
+      { result: numAllCats },
+      { result: numAllPhotos },
+      { result: numAllComments },
+      { result: numSterilized },
+      { result: numAdoptQf },
+      { result: numCurrentCats },
+    ] = await Promise.all([
+      apiDb.collection('cat').count(allCatQf),
+      apiDb.collection('photo').count(allPhotoQf),
+      apiDb.collection('comment').count(allCommentQf),
+      apiDb.collection('cat').count(sterilizedQf),
+      apiDb.collection('cat').count(adoptQf),
+      apiDb.collection('cat').count(currentCatsQf),
+    ]);
 
     // 计算绝育率
     const adoptRate = (numAdoptQf / numAllCats * 100).toFixed(1);
@@ -267,19 +277,23 @@ Page({
     const isLevel3 = !!(await isManagerAsync(3));
     // 待处理照片
     const imProcessQf = { photo_compressed: { $in: [undefined, ''] }, verified: true };
-    const { result: numChkPhotos } = await apiDb.collection('photo').count({ verified: false });
-    const { result: numChkComments } = await apiDb.collection('comment').count({ needVerify: true });
-    const { result: numFeedbacks } = await apiDb.collection('feedback').count({ dealed: false });
-    const { result: numImProcess } = await apiDb.collection('photo').count(imProcessQf);
-    const { result: numMapAccessApps } = await apiDb.collection('user').count({ 'mapAccess.status': 'pending' });
-    // 待审核领养申请（集合可能尚未创建，容错处理）
-    let numChkAdoptions = 0;
-    try {
-      const { result } = await apiDb.collection('adoption').count({ status: 'pending' });
-      numChkAdoptions = result;
-    } catch (err) {
-      console.log('[onShow] - adoption集合尚未创建');
-    }
+    // 【性能】待处理统计同样并行；adoption 集合可能不存在，单独兜错
+    const safeCount = (q) => q.catch(() => ({ result: 0 }));
+    const [
+      { result: numChkPhotos },
+      { result: numChkComments },
+      { result: numFeedbacks },
+      { result: numImProcess },
+      { result: numMapAccessApps },
+      { result: numChkAdoptions },
+    ] = await Promise.all([
+      apiDb.collection('photo').count({ verified: false }),
+      apiDb.collection('comment').count({ needVerify: true }),
+      apiDb.collection('feedback').count({ dealed: false }),
+      apiDb.collection('photo').count(imProcessQf),
+      apiDb.collection('user').count({ 'mapAccess.status': 'pending' }),
+      safeCount(apiDb.collection('adoption').count({ status: 'pending' })),
+    ]);
     this.setData({
       "nums.numChkPhotos": numChkPhotos,
       "nums.numChkComments": numChkComments,

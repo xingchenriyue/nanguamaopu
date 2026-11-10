@@ -50,12 +50,25 @@ App({
     }
   },
 
-  /** 每 48 小时清理一次全部本地缓存，避免过期签名 URL 与脏数据堆积 */
+  /**
+   * 每 48 小时清理一次业务缓存，避免过期签名 URL 与脏数据堆积。
+   * 【必须保留登录态】clearStorageSync 会把 mp_token / mp_openid 一起清掉，
+   * 用户会突然被当成未登录（识猫页要求登录时尤其明显）。只清业务缓存。
+   */
   clearCache() {
     const clearDay = wx.getStorageSync('clear-all-cache');
     if (!clearDay || new Date(clearDay) < new Date()) {
-      console.log('清理所有缓存数据');
-      wx.clearStorageSync();
+      console.log('清理业务缓存（保留登录态）');
+      const KEEP_KEYS = ['mp_token', 'mp_openid'];
+      const kept = {};
+      for (const k of KEEP_KEYS) {
+        const v = wx.getStorageSync(k);
+        if (v) kept[k] = v;
+      }
+      try { wx.clearStorageSync(); } catch (e) { console.warn('[app] 清理缓存失败', e); }
+      for (const k of Object.keys(kept)) {
+        try { wx.setStorageSync(k, kept[k]); } catch (e) { /* ignore */ }
+      }
       wx.setStorageSync('clear-all-cache', getDateWithDiffHours(48));
     } else {
       console.log('缓存仍然有效，过期时间', new Date(clearDay));

@@ -13,14 +13,17 @@ Page({
     
   },
 
-  jsData: {
-    codes: [],
-  },
-
   /**
    * 生命周期函数--监听页面加载
    */
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      codes: [],
+    };
+
     await checkAuth(this, 3)
   },
 

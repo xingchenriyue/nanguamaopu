@@ -273,10 +273,10 @@ async function loadAppName(ctx) {
     const { result } = await ctx.mpserverless.db.collection('setting').findOne({
       _id: 'pages'
     });
-    return (result && result.app_name) || '笃行猫谱';
+    return (result && result.app_name) || '南瓜猫谱';
   } catch (e) {
     console.warn('[photoProcess] loadAppName failed, fallback', e && e.message);
-    return '笃行猫谱';
+    return '南瓜猫谱';
   }
 }
 

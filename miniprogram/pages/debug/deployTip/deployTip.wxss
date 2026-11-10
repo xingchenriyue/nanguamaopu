@@ -1,19 +1,48 @@
-/* pages/debug/deployTip/deployTip.wxss */
+/* pages/debug/deployTip/deployTip.wxss —— 部署自检页样式（颜色统一取 app.wxss 主题变量） */
 
 page {
-  background-color: var(--color-gray-light);
+  /* 视口高度 = 全屏（custom 导航下即整个屏幕） */
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-gray-light, #E0E0F0);
+}
+
+/* 滚动容器：视口顶边在屏幕 0，内容从毛玻璃顶栏下方穿过 */
+.deploy-scroll {
+  width: 750rpx;
+  height: 100%;
 }
 
 .h1 {
-  background-color: white;
+  background-color: var(--color-card, #FFFFFF);
   text-align: center;
   font-weight: bold;
   font-size: 50rpx;
+  color: var(--brand-ink, #004080);
+}
+
+.sub {
+  padding: 16rpx 24rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-text-sub, #6B7B93);
+  background-color: var(--color-card, #FFFFFF);
+}
+
+.bar {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0;
+}
+.recheck {
+  background-color: var(--brand-primary, #406090);
+  color: var(--brand-on, #FFFFFF);
+  font-size: 26rpx;
 }
 
 .check {
   margin-top: 10rpx;
-  background-color: white;
+  background-color: var(--color-card, #FFFFFF);
 }
 
 .line {
@@ -27,6 +56,7 @@ page {
 
 .line .title {
   font-weight: bold;
+  color: var(--color-text, #22314A);
 }
 
 .line .status {
@@ -34,20 +64,33 @@ page {
 }
 
 .line .status.success {
-  color: green;
+  color: var(--color-green, #22ad6d);
 }
 .line .status.fail {
-  color: red;
+  color: var(--color-red, #dc3545);
+}
+/* 「提示」：部署前预期状态（AppSecret 未配置 / DB 未就绪），醒目但不标红 */
+.line .status.warn {
+  color: var(--color-primary, #406090);
+  font-weight: bold;
 }
 
 .tip {
   width: 100%;
   padding: 10rpx;
-  border-top: 1rpx solid var(--color-gray-dark);
+  border-top: 1rpx solid var(--color-gray-dark, #B0C0D0);
   font-size: 24rpx;
   box-sizing: border-box;
+  color: var(--color-text-sub, #6B7B93);
 }
 
 .tip .highlight {
-  color: red;
+  color: var(--color-red, #dc3545);
+}
+/* 通过 / 提示项的附加文案不用红色（避免与「未通过」混淆） */
+.tip .highlight.success {
+  color: var(--color-text-sub, #6B7B93);
+}
+.tip .highlight.warn {
+  color: var(--color-primary, #406090);
 }

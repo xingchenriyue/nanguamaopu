@@ -1,6 +1,9 @@
 {
   "usingComponents": {
-    "no-auth": "/components/noAuth/noAuth"
+    "no-auth": "/components/noAuth/noAuth",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
-  "navigationBarTitleText": "创建新公告"
+  "navigationBarTitleText": "创建新公告",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

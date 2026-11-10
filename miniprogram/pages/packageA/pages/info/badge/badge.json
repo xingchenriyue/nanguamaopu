@@ -1,7 +1,10 @@
 {
   "usingComponents": {
-    "badgeModal": "/components/badgeModal/badgeModal"
+    "badgeModal": "/components/badgeModal/badgeModal",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
   "navigationBarTitleText": "小猫徽章",
-  "backgroundColor": "#F7F7FA"
+  "backgroundColor": "#F7F7FA",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

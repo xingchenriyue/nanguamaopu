@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="调试面板" back="{{true}}" holder="{{true}}"></glass-nav>
 <view style='width: 750rpx;'>{{res}}</view>
 
 <heart bindclickbtn="click_like"></heart>

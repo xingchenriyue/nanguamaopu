@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 // 审核照片
 import { checkAuth, fillUserInfo } from "../../../utils/user";
 import { requestNotice, sendVerifyNotice, getMsgTplId } from "../../../utils/msg";
@@ -6,6 +7,8 @@ import { signCosUrl } from "../../../utils/common";
 import { getCatItem } from "../../../utils/cat";
 import { formatDate } from "../../../utils/utils";
 import api from "../../../utils/cloudApi";
+import { getGlobalSettings } from "../../../utils/page";
+import { getRecognizeMode } from "../../../utils/recognize";
 
 const app = getApp();
 
@@ -34,26 +37,28 @@ Page({
     historyTotal: 0,
     historyLoading: false,
     historyNoMore: false,
-    historyInited: false,
     // 图片默认不加载，勾选后才批量签名；未勾选时可点击单张加载
     showHistoryImages: false,
-  },
-
-  jsData: {
-    // 准备发送通知的列表，姓名：审核详情
-    notice_list: {},
-    // 原始照片数据（未签名、未填充userInfo），按校区分组
-    rawPhotos: {},
-    // 已加载完成的校区
-    loadedCampus: {},
-    // 审核记录的分页状态
-    historyState: { list: [], total: 0, noMore: false, loading: false },
   },
 
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      // 准备发送通知的列表，姓名：审核详情
+      notice_list: {},
+      // 原始照片数据（未签名、未填充userInfo），按校区分组
+      rawPhotos: {},
+      // 已加载完成的校区
+      loadedCampus: {},
+      // 审核记录的分页状态
+      historyState: { list: [], total: 0, noMore: false, loading: false },
+    };
+
     this.jsData.notice_list = {};
     this.jsData.rawPhotos = {};
     this.jsData.loadedCampus = {};
@@ -82,12 +87,12 @@ Page({
 
     try {
       // 获取所有未审核照片
-      var { result: total_count } = await app.mpServerless.db.collection('photo').count({ verified: false });
+      var { result: total_count } = await apiDb.collection('photo').count({ verified: false });
 
       var pools = [];
       for (var i = 0; i < total_count; i += 100) {
         pools.push(
-          app.mpServerless.db.collection('photo').find(
+          apiDb.collection('photo').find(
             { verified: false },
             { skip: i, limit: 100 }
           )
@@ -204,8 +209,7 @@ Page({
     const mode = e.currentTarget.dataset.mode;
     if (mode === this.data.mode) return;
     this.setData({ mode });
-    if (mode === 'history' && !this.data.historyInited) {
-      this.setData({ historyInited: true });
+    if (mode === 'history') {
       this.loadHistory(true);
     }
   },
@@ -312,14 +316,22 @@ Page({
   async loadOneHistoryImage(e) {
     const index = e.currentTarget.dataset.index;
     const item = this.jsData.historyState.list[index];
-    if (!item || !item.thumb || item.thumbSigned || item.imgError) return;
+    if (!item || !item.thumb || item.imgError) return;
+
+    if (item.thumbSigned) {
+      item.imageExpanded = true;
+      this.setData({ [`historyList[${index}].imageExpanded`]: true });
+      return;
+    }
 
     try {
       item.thumb = await signCosUrl(item.thumb);
       item.thumbSigned = true;
+      item.imageExpanded = true;
       this.setData({
         [`historyList[${index}].thumb`]: item.thumb,
         [`historyList[${index}].thumbSigned`]: true,
+        [`historyList[${index}].imageExpanded`]: true,
       });
     } catch (err) {
       console.error('[loadOneHistoryImage] - 签名失败:', err);
@@ -331,6 +343,8 @@ Page({
   // 审核记录中的图片加载失败（如已删除的照片）
   onHistoryImgError(e) {
     const index = e.currentTarget.dataset.index;
+    const item = this.jsData.historyState.list[index];
+    if (item) item.imgError = true;
     this.setData({
       [`historyList[${index}].imgError`]: true,
     });
@@ -519,6 +533,18 @@ Page({
     }
     var all_queries = [], new_photos = [];
     var transferFailCount = 0;
+    let syncFailCount = 0;
+    let syncPendingCount = 0;
+    const syncErrors = new Set();
+    const recordSync = checked => {
+      if (!checked || !checked.meowid) return;
+      if (checked.meowid.pending) { syncPendingCount++; return; }
+      if (checked.meowid.ok) return;
+      syncFailCount++;
+      const result = checked.meowid;
+      syncErrors.add((result.msg || '未返回具体原因') + (result.requestId ? '（请求编号：' + result.requestId + '）' : ''));
+    };
+    const useMeowid = getRecognizeMode(await getGlobalSettings('recognize', { nocache: true })) === 'meowid';
     for (const photo of photos) {
       if (!photo.mark || photo.mark == "") {
         new_photos.push(photo);
@@ -532,24 +558,21 @@ Page({
           new_photos.push(photo);
           continue;
         }
-        // 先通过审核，再转移归属；读库校验转移结果（旧版云函数会静默失败）
-        all_queries.push((async () => {
-          await api.managePhoto({
-            type: "check",
-            photo: photo,
-            best: false,
-          });
+        // 先转移并校验归属，再审核，确保注册到正确的猫咪档案。
+        all_queries.push(() => (async () => {
           await api.managePhoto({
             type: "transfer",
             photo: photo,
             target_cat_id: transfer_cat_id,
           });
-          const { result: latest } = await app.mpServerless.db.collection('photo').findOne({
+          const { result: latest } = await apiDb.collection('photo').findOne({
             _id: photo._id
           });
           if (!latest || latest.cat_id !== transfer_cat_id) {
             throw new Error('transfer not applied: ' + photo._id);
           }
+          const checked = await api.managePhoto({ type: 'check', photo: latest, best: false });
+          recordSync(checked);
         })().then(() => {
           this.addNotice(photo, true);
         }).catch(err => {
@@ -561,17 +584,25 @@ Page({
       }
 
       // 准备数据
-      var data = {
+      const data = {
         type: mask2type[photo.mark],
         photo: photo,
         best: photo.mark == "best",
       }
 
-      all_queries.push(api.managePhoto(data))
+      all_queries.push(async () => {
+        const checked = await api.managePhoto(data);
+        recordSync(checked);
+      })
       this.addNotice(photo, (photo.mark != "delete"));
     }
     // 阻塞一下
-    await Promise.all(all_queries);
+    if (useMeowid) {
+      for (const task of all_queries) await task();
+    } else {
+      await Promise.all(all_queries.map(task => task()));
+    }
+    wx.hideLoading();
 
     // 更新校区照片列表和计数
     var newCount = new_photos.length;
@@ -586,9 +617,11 @@ Page({
         content: transferFailCount + ' 张照片转移未生效（云函数可能未更新，请重新部署后重试），已保留在待审列表中',
         showCancel: false,
       });
+    } else if (syncFailCount > 0) {
+      wx.showModal({ title: '审核完成', content: syncFailCount + ' 张照片未完成 MeowID 同步。\n' + Array.from(syncErrors).slice(0, 3).join('\n') + '\n可在识猫服务页继续全量同步。', showCancel: false });
     } else {
       wx.showToast({
-        title: '审核通过',
+        title: syncPendingCount ? '审核通过，同步处理中' : '审核通过',
       });
     }
   },

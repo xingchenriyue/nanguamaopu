@@ -5,14 +5,31 @@ page {
   background: var(--color-gray-light);
 }
 
+/*
+  频道切换行：固定在毛玻璃顶栏正下方，本身也是毛玻璃。
+  榜单内容滚动时从它下方掠过，backdrop-filter 背后才有内容可模糊。
+*/
 .thread-list {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 88;
   display: flex;
   justify-content: space-around;
   padding: 10rpx 100rpx 0 100rpx;
   overflow: hidden;
-  background-color: white;
   box-sizing: border-box;
+  /* 毛玻璃：半透明底 + 背景模糊，透出下方滚动的榜单内容 */
+  background-color: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(24rpx) saturate(180%);
+  -webkit-backdrop-filter: blur(24rpx) saturate(180%);
   box-shadow: 0rpx 0rpx 10rpx var(--color-gray);
+}
+
+/* 榜单 swiper：视口顶边落在屏幕 0，内容从毛玻璃层下方穿过 */
+.rank-swiper {
+  position: relative;
+  z-index: 0;
 }
 
 .thread-item {
@@ -60,7 +77,8 @@ page {
   width: 350rpx;
   background: #fff;
   margin: 0rpx auto 20rpx auto;
-  border-radius: 10rpx;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 

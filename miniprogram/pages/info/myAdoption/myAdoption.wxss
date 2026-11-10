@@ -1,7 +1,7 @@
 .page {
   padding: 30rpx;
   min-height: 100vh;
-  background: #f7f7f7;
+  background: #F3F6FA;
   box-sizing: border-box;
 }
 
@@ -47,8 +47,8 @@
 }
 
 .status-pending {
-  background: #fff7e6;
-  color: #fa8c16;
+  background: #E8EFF7;
+  color: #104070;
 }
 
 .status-approved {
@@ -75,7 +75,7 @@
 .review-note {
   font-size: 26rpx;
   color: #666;
-  background: #f7f7f7;
+  background: #F3F6FA;
   border-radius: 12rpx;
   padding: 16rpx;
   margin-top: 16rpx;

@@ -6,7 +6,10 @@ import tabsDef from "../../../custom-tab-bar/tab";
 
 const userTypes = [{
   val: UserTypes.guest,
-  name: "游客"
+  name: "游客（未完善资料）"
+}, {
+  val: UserTypes.loggedin,
+  name: "登录用户（有用户名和头像）"
 }, {
   val: UserTypes.invited,
   name: "特邀用户"
@@ -220,6 +223,32 @@ module.exports = {
       tip: "识猫页banner广告ID",
       default: "your_ad_id"
     },
+    "recognize_video": {
+      type: "text",
+      tip: "识猫页激励视频广告ID（识猫满「免费识别次数」后要看一次）",
+      default: "your_ad_id"
+    },
+    "recognize_free_times": {
+      type: "text",
+      tip: "每天赠送的识别次数（整数，默认 2）：用户每天首次使用小程序时刷新这些次数，用完后再识别要先看完一次激励视频",
+      default: "2"
+    },
+    "recognize_ad_bonus": {
+      type: "text",
+      tip: "看一次广告增加的识别次数（整数，默认 2）",
+      default: "2"
+    },
+    "recognize_ad_reset": {
+      type: "text",
+      tip: "识别次数重置策略：daily=每天 0 点重置 / weekly=每周一重置 / never=从不重置（填其一）",
+      default: "daily"
+    },
+    "recognize_ad_exempt_roles": {
+      type: "multi-select",
+      tip: "免看广告的人群（这些人群不消耗识别次数，也不会被广告拦住）",
+      default: "manager",
+      choices: userTypes
+    },
     "reward_video": {
       type: "text",
       tip: "打赏投喂页激励广告ID",
@@ -236,17 +265,23 @@ module.exports = {
       default: "your_ad_id"
     },
   },
+  // 识猫相关设置分两个入口，字段级互补、互不覆盖：
+  //   页面配置页（本页）管「展现」：recognize.showRecognizeBtn（首页识猫入口显隐）、
+  //     recognize.interfaceURL（custom 模式的识猫接口地址）、ads.recognize_banner（识猫页 banner）
+  //   识猫服务页（pages/debug/meowid）管「服务接入」：recognize.mode、recognize.secretKey
+  // 所以本页只描述展现类字段，**不写** mode / secretKey 的描述 ——
+  // 否则用户能在这里改到它们，提交时整树 $set 会覆盖识猫服务页刚保存的值。
   recognize: {
     tip: "识猫页设置",
     showRecognizeBtn: {
       type: "bool",
-      tip: "是否显示识猫按钮",
+      tip: "是否在首页显示识猫入口按钮",
       default: true
     },
-    secretKey: {
+    interfaceURL: {
       type: "text",
-      tip: "识猫接口秘钥",
-      default: "key"
-    },
+      tip: "识猫接口地址（custom 模式使用）",
+      default: "https://your.domain.com/recognizeCatPhoto"
+    }
   }
 }

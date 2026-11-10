@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import { getUser, getPageUserInfo } from "../../../utils/user";
 import api from "../../../utils/cloudApi";
 import { isDemoMode } from "../../../utils/demo";
@@ -50,8 +51,8 @@ Page({
     if (!user || !user.openid) return;
 
     try {
-      const { result: photoCount } = await app.mpServerless.db.collection('photo').count({ _openid: user.openid });
-      const { result: commentCount } = await app.mpServerless.db.collection('comment').count({ user_openid: user.openid });
+      const { result: photoCount } = await apiDb.collection('photo').count({ _openid: user.openid });
+      const { result: commentCount } = await apiDb.collection('comment').count({ user_openid: user.openid });
       const totalCount = photoCount + commentCount;
       const autoPass = totalCount >= this.data.autoPassCount;
 

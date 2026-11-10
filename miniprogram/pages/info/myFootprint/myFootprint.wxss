@@ -1,4 +1,6 @@
 .page {
+  /* 毛玻璃顶栏高度（由页面注入 navTotalHeight），sticky 元素据此下移 */
+  --nav-h: 0px;
   min-height: 100vh;
   background: var(--color-gray-light);
   padding-bottom: 30rpx;
@@ -9,7 +11,8 @@
   background: var(--color-comment-paper-white);
   padding: 20rpx 30rpx;
   position: sticky;
-  top: 0;
+  /* 吸顶位置避开毛玻璃顶栏（--nav-h 由页面注入 navTotalHeight） */
+  top: var(--nav-h, 0px);
   z-index: 10;
 }
 
@@ -75,7 +78,7 @@
 
 .photo-cat {
   font-size: 26rpx;
-  color: #576b95;
+  color: #406090;
   font-weight: 500;
 }
 
@@ -122,8 +125,8 @@
 
 .cat-count {
   font-size: 24rpx;
-  color: #fa8c16;
-  background: #fff7e6;
+  color: #104070;
+  background: #E8EFF7;
   padding: 6rpx 20rpx;
   border-radius: 24rpx;
 }
@@ -153,7 +156,7 @@
 
 .comment-cat {
   font-size: 24rpx;
-  color: #576b95;
+  color: #406090;
 }
 
 .comment-time {

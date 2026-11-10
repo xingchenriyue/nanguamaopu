@@ -1,4 +1,6 @@
 <mask style="z-index: {{zindex}};" show="{{show && !closing}}" bind:close="hide"></mask>
-<view class="popup-container {{position}} {{show ? 'show' : ''}} {{closing ? 'hide' : ''}}" wx:if="{{internalShow || show}}">
+<!-- 容器不能用 wx:if：<slot> 被 wx:if 摘掉时微信会报 "[Component] slot is not found" 警告。
+     隐藏态改用 display:none；关闭动画期间 internalShow 仍为 true，动画不受影响。 -->
+<view class="popup-container {{position}} {{show ? 'show' : ''}} {{closing ? 'hide' : ''}}" style="{{internalShow || show ? '' : 'display:none'}}">
   <slot></slot>
 </view>

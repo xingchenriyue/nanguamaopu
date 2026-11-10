@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="页面设置" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/manage/system/system.wxml-->
 <!-- 记录一下设置项：
 1. 保持settings表不变进行设置保存

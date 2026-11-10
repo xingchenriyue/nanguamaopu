@@ -1,8 +1,10 @@
+const apiDb = require('../../../utils/api.js').db;
 // 我的足迹：我拍的照片、拍过的猫咪、我的便利贴
 import { getCatItemMulti, getAvatar } from "../../../utils/cat";
 import { signCosUrl } from "../../../utils/common";
 import { formatDate } from "../../../utils/utils";
 import api from "../../../utils/cloudApi";
+import { initLayout } from "../../../utils/page";
 
 const app = getApp();
 
@@ -16,6 +18,8 @@ const PHOTO_PAGE_SIZE = 8;
 
 Page({
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
     tabs: TABS,
     activeTab: 'photos',
     loading: true,
@@ -30,14 +34,22 @@ Page({
     comments: [],
   },
 
-  jsData: {
-    myOpenid: '',
-    loaded: {}, // 各 tab 是否已加载
-    photoSkip: 0, // 照片分页游标
-    photosLoading: false, // 防止触底重复请求
-  },
 
+  onLoad() {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
+  },
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      myOpenid: '',
+      loaded: {}, // 各 tab 是否已加载
+      photoSkip: 0, // 照片分页游标
+      photosLoading: false, // 防止触底重复请求
+    };
+
     this.jsData.myOpenid = await api.getCurrentUserOpenid();
     if (!this.jsData.myOpenid) {
       wx.showToast({ title: '请先登录', icon: 'none' });
@@ -92,7 +104,7 @@ Page({
     const isFirstPage = this.jsData.photoSkip === 0;
     if (isFirstPage) this.setData({ loading: true });
     try {
-      const { result: photos } = await app.mpServerless.db.collection('photo').find(
+      const { result: photos } = await apiDb.collection('photo').find(
         { _openid: this.jsData.myOpenid },
         // create_date 旧数据可能缺失（老后端迁移），用 mdate 兜底排序
         { sort: { create_date: -1, mdate: -1 }, skip: this.jsData.photoSkip, limit: PHOTO_PAGE_SIZE }
@@ -148,8 +160,8 @@ Page({
     try {
       const qf = { _openid: this.jsData.myOpenid };
       const [total, best] = await Promise.all([
-        app.mpServerless.db.collection('photo').count(qf),
-        app.mpServerless.db.collection('photo').count({ ...qf, verified: true, best: true }),
+        apiDb.collection('photo').count(qf),
+        apiDb.collection('photo').count({ ...qf, verified: true, best: true }),
       ]);
       this.setData({ photoStats: { total: total.result, best: best.result } });
     } catch (err) {
@@ -161,7 +173,7 @@ Page({
   async loadCats() {
     this.setData({ loading: true });
     try {
-      const { result: photos } = await app.mpServerless.db.collection('photo').find(
+      const { result: photos } = await apiDb.collection('photo').find(
         { _openid: this.jsData.myOpenid },
         { limit: 500 }
       );
@@ -199,7 +211,7 @@ Page({
   async loadComments() {
     this.setData({ loading: true });
     try {
-      let { result: comments } = await app.mpServerless.db.collection('comment').find(
+      let { result: comments } = await apiDb.collection('comment').find(
         { user_openid: this.jsData.myOpenid, deleted: { $ne: true } },
         { sort: { create_date: -1 }, limit: 100 }
       );

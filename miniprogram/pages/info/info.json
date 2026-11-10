@@ -1,6 +1,9 @@
 {
   "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "关于",
-  "backgroundColor": "#F7F7FA"
+  "backgroundColor": "#f7f7f7"
 }

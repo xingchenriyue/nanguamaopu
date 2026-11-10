@@ -8,7 +8,8 @@ Page({
    * 页面的初始数据
    */
   data: {
-
+    // 顶栏标题：自定义导航栏下 setNavigationBarTitle 失效，改由 data 驱动
+    navTitle: '徽章口袋',
   },
 
   /**
@@ -27,6 +28,8 @@ Page({
     wx.setNavigationBarTitle({
       title: `${info.catName}的徽章口袋`
     })
+    // 自定义导航栏下没有原生标题栏，改用 data 驱动顶栏标题
+    this.setData({ navTitle: `${info.catName}的徽章口袋` });
     const [badgeDefMap, _] = await Promise.all([
       loadBadgeDefMap(),
       fillUserInfo(detailBadges, "_openid", "userInfo"),

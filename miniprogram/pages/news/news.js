@@ -1,8 +1,9 @@
+const apiDb = require('../../utils/api.js').db;
 // miniprogram/pages/news/news.js
 import { sleep } from "../../utils/utils";
 import { text as text_cfg, science_imgs } from "../../config";
 import { checkAuth } from "../../utils/user";
-import { showTab } from "../../utils/page";
+import { showTab, initLayout } from "../../utils/page";
 import { signCosUrl } from "../../utils/common";
 const share_text = text_cfg.app_name + ' - ' + text_cfg.science.share_tip;
 
@@ -11,6 +12,16 @@ const app = getApp();
 Page({
   data: {
     text_cfg: text_cfg,
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 底部悬浮 dock 占位高度（由 initLayout 注入）
+    tabBarHeight: 0,
+    // 导航条下方可用高度（由 initLayout 注入）
+    contentHeight: 0,
+    // 毛玻璃顶栏带高度（由 initLayout 注入）
+    navBandHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
     newsList: [],
     newsList_show: [],
     updateRequest: false,
@@ -47,7 +58,7 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
-    var { result } = await app.mpServerless.db.collection('news').find({}, { sort: { date: -1 } });
+    var { result } = await apiDb.collection('news').find({}, { sort: { date: -1 } });
 
     // 签名 coverPath 字段
     for (let i = 0; i < result.length; i++) {
@@ -103,7 +114,7 @@ Page({
 
   // 重新载入数据库
   async getData() {
-    var { result } = await app.mpServerless.db.collection('news').find({}, { sort: { date: -1 } });
+    var { result } = await apiDb.collection('news').find({}, { sort: { date: -1 } });
 
     // 签名 coverPath 字段
     for (let i = 0; i < result.length; i++) {

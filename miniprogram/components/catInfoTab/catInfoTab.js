@@ -1,8 +1,9 @@
+const apiDb = require('../../utils/api.js').db;
 import { text as text_cfg, cat_status_adopt } from "../../config";
 import { checkAuth, fillUserInfo, isManagerAsync } from "../../utils/user";
 import { loadFilter } from "../../utils/page";
 import { getCatItemMulti } from "../../utils/cat";
-import { signCosUrl } from "../../utils/common";
+import { signCosUrl, normalizeWriteResult } from "../../utils/common";
 import api from "../../utils/cloudApi";
 const app = getApp();
 
@@ -55,25 +56,22 @@ Component({
     tipBtn: false,
     pickers: {
       gender: ['公', '母', '未知'],
-      sterilized: ['未绝育', '已绝育'],
       missing: ['否', '是'],
       to_star: ['否', '是'],
       adopt: []
     },
     adopts: [], // 将存储adopt选项的映射
     pickerValueMaps: {
-      sterilized: [false, true],
       missing: [false, true],
       to_star: [false, true]
     },
     picker_selected: {},
     bottomShow: false,
+    loadingPhotos: false,
     text_cfg: text_cfg,
     only_best_photo: false,
     isNewMode: false
   },
-
-  jsData: null,
 
   lifetimes: {
     attached: async function () {
@@ -92,6 +90,7 @@ Component({
         'pickers.adopt': cat_status_adopt
       });
       await this.loadPickers();
+
       if (this.properties.cat_id) {
         this.jsData.cat_id = this.properties.cat_id;
         await this.loadCat();
@@ -122,7 +121,6 @@ Component({
     _initNewCatState() {
       const defaultPickerSelected = {
         gender: 2, // '未知'
-        sterilized: 0, // '未绝育' (false)
         missing: 0, // '否' (false)
         to_star: 0, // '否' (false)
         adopt: 0 // 第一个状态 (index 0)
@@ -132,7 +130,6 @@ Component({
         characteristics: [],
         popularity: 0,
         gender: this.data.pickers.gender[defaultPickerSelected.gender], // '未知'
-        sterilized: this.data.pickerValueMaps.sterilized[defaultPickerSelected.sterilized], // false
         missing: this.data.pickerValueMaps.missing[defaultPickerSelected.missing], // false
         to_star: this.data.pickerValueMaps.to_star[defaultPickerSelected.to_star], // false
         adopt: defaultPickerSelected.adopt // 0
@@ -163,7 +160,7 @@ Component({
       if (!this.jsData) {
         this.jsData = { cat_id: undefined, phers: {} };
       }
-      
+
       const { defaultCatState, defaultPickerSelected } = this._initNewCatState();
       this.setData({
         cat: defaultCatState,
@@ -203,7 +200,7 @@ Component({
 
       var cat = (await getCatItemMulti([this.jsData.cat_id], { nocache: true }))[0];
       console.log("[loadCat] -", cat);
-      cat.mphoto = String(new Date(cat.mphoto));
+      cat.mphoto = cat.mphoto ? String(new Date(cat.mphoto)) : '';
       // 处理一下picker
       var picker_selected = {};
       const pickers = this.data.pickers;
@@ -245,6 +242,21 @@ Component({
       await this.reloadPhotos();
     },
 
+    getPhotoFilter() {
+      const qf = { cat_id: this.jsData.cat_id, verified: true };
+      // 关闭精选筛选时保留全部过审照片，包括未设置 best 的历史照片。
+      if (this.data.only_best_photo) {
+        qf.best = true;
+      }
+      return qf;
+    },
+
+    isPhotoRequestCurrent(generation, filter) {
+      return generation === this.jsData.photoGeneration &&
+        filter.cat_id === this.jsData.cat_id &&
+        !!filter.best === this.data.only_best_photo;
+    },
+
     async reloadPhotos() {
       // 确保 jsData 已初始化
       if (!this.jsData) {
@@ -252,12 +264,28 @@ Component({
         return; // 如果没有 cat_id，无法加载照片
       }
 
-      const only_best_photo = this.data.only_best_photo;
-      const { result: photoRes } = await app.mpServerless.db.collection('photo').count({ cat_id: this.jsData.cat_id, verified: true, best: only_best_photo })
-      this.setData({
-        photoMax: photoRes,
-        photo: []
-      });
+      // 刷新开启新一代请求，旧请求不能覆盖列表或释放新请求的加载锁。
+      const generation = this.jsData.photoGeneration = (this.jsData.photoGeneration || 0) + 1;
+      const filter = this.getPhotoFilter();
+      this.jsData.loadingPhotos = true;
+      this.setData({ photo: [], photoMax: 0, loadingPhotos: true });
+      try {
+        const { result: photoRes } = await apiDb.collection('photo').count(filter);
+        if (!this.isPhotoRequestCurrent(generation, filter)) return;
+        this.setData({ photoMax: photoRes });
+      } catch (error) {
+        if (this.isPhotoRequestCurrent(generation, filter)) {
+          console.error('加载猫图数量失败:', error);
+          this.setData({ bottomText: '加载失败，退出重试喵～' });
+        }
+        return;
+      } finally {
+        if (this.isPhotoRequestCurrent(generation, filter)) {
+          this.jsData.loadingPhotos = false;
+          this.setData({ loadingPhotos: false });
+        }
+      }
+      if (!this.isPhotoRequestCurrent(generation, filter)) return;
       await this.loadMorePhotos();
     },
 
@@ -265,7 +293,7 @@ Component({
       if (this.data.photoMax == 0 || this.data.photo.length >= this.data.photoMax) {
         this.setData({
           bottomShow: true,
-          bottomText: "-- 没有更多猫图了 --",
+          bottomText: text_cfg.detail_cat.bottom_text_end,
           noMorePhoto: true,
         });
         console.log("[checkNeedLoad] - Check no more");
@@ -273,22 +301,18 @@ Component({
       } else {
         this.setData({
           bottomShow: true,
-          bottomText: '点击加载更多猫图',
+          bottomText: '上拉加载更多猫图',
+          noMorePhoto: false,
         });
         return true;
       }
     },
-    // 点击加载更多
-    async clickLoad(e) {
-      await this.loadMorePhotos();
-    },
-
     async loadMorePhotos() {
       // 确保 jsData 已初始化
       if (!this.jsData) {
         this.jsData = { cat_id: null, phers: {} };
       }
-      if (this.jsData.cat_id === undefined) {
+      if (!this.jsData.cat_id || this.jsData.loadingPhotos) {
         // 新猫，没有照片
         return false;
       }
@@ -299,28 +323,44 @@ Component({
         return false;
       }
 
-      const only_best_photo = this.data.only_best_photo;
-      const qf = { cat_id: this.jsData.cat_id, verified: true, best: only_best_photo };
-      const now = photo.length;
-      var { result: newPhotos } = await app.mpServerless.db.collection('photo').find(qf, { sort: { mdate: -1 }, skip: now, limit: photoStep })
-      await fillUserInfo(newPhotos, "_openid", "userInfo");
+      const generation = this.jsData.photoGeneration;
+      const qf = this.getPhotoFilter();
+      this.jsData.loadingPhotos = true;
+      this.setData({ loadingPhotos: true });
+      try {
+        const now = photo.length;
+        var { result: newPhotos } = await apiDb.collection('photo').find(qf, { sort: { mdate: -1 }, skip: now, limit: photoStep })
+        await fillUserInfo(newPhotos, "_openid", "userInfo");
 
-      console.log("[loadMorePhotos] -", newPhotos);
-      for (var photos of newPhotos) {
-        if (photos.photo_id) {
-          photos.photo_id = await signCosUrl(photos.photo_id);
+        console.log("[loadMorePhotos] -", newPhotos);
+        for (var photos of newPhotos) {
+          if (photos.photo_id) {
+            photos.photo_id = await signCosUrl(photos.photo_id);
+          }
+          if (photos.photo_compressed) {
+            photos.photo_compressed = await signCosUrl(photos.photo_compressed);
+          }
+          if (photos.photo_watermark) {
+            photos.photo_watermark = await signCosUrl(photos.photo_watermark);
+          }
         }
-        if (photos.photo_compressed) {
-          photos.photo_compressed = await signCosUrl(photos.photo_compressed);
+        if (!this.isPhotoRequestCurrent(generation, qf)) return;
+        photo = photo.concat(newPhotos);
+        this.setData({
+          photo: photo
+        });
+        this.checkNeedLoad();
+      } catch (error) {
+        if (this.isPhotoRequestCurrent(generation, qf)) {
+          console.error('加载猫图失败:', error);
+          this.setData({ bottomText: '加载失败，退出重试喵～' });
         }
-        if (photos.photo_watermark) {
-          photos.photo_watermark = await signCosUrl(photos.photo_watermark);
+      } finally {
+        if (this.isPhotoRequestCurrent(generation, qf)) {
+          this.jsData.loadingPhotos = false;
+          this.setData({ loadingPhotos: false });
         }
       }
-      photo = photo.concat(newPhotos);
-      this.setData({
-        photo: photo
-      });
     },
 
     // 输入了东西
@@ -440,13 +480,25 @@ Component({
       wx.showLoading({
         title: '更新中...',
       });
+      const { sterilized, sterilized_time, ...editableCat } = this.data.cat;
+      // PG 后端 characteristics 为 JSONB 数组：表单输入为字符串，写入前按中文/英文逗号拆为数组，
+      // 与读侧（数组 join）保持一致。若后端实际接受字符串，请在联调时告知，此处可回退。
+      if (editableCat.characteristics != null && typeof editableCat.characteristics !== 'object') {
+        editableCat.characteristics = String(editableCat.characteristics)
+          .split(/[，,]/).map(s => s.trim()).filter(Boolean);
+      }
       var res = await api.updateCat({
-        cat: this.data.cat,
+        cat: editableCat,
         cat_id: this.jsData.cat_id
       });
       console.log("updateCat res:", res);
-      if (res.insertedId) {
-        this.jsData.cat_id = res.insertedId;
+      // 【取 id 要剥一层 result】后端 updateCat 的新增分支返回
+      // { result: { insertedId, acknowledged }, ok: true }（result 是嵌套的），
+      // 直接读 res.insertedId 是 undefined → 新建猫后拿不到 _id，
+      // 后续跳详情页会失败。
+      const wr = normalizeWriteResult(res);
+      if (wr.insertedId) {
+        this.jsData.cat_id = wr.insertedId;
       }
       wx.showToast({
         title: '操作成功',
@@ -525,6 +577,7 @@ Component({
       this.setData({
         ['photo[' + index + '].best']: set_best
       });
+
     },
     inputPher(e) {
       if (!this.jsData) {
@@ -650,12 +703,12 @@ Component({
             icon: 'success',
             duration: 2000
           });
-          
+
           // 6. 触发删除成功事件，通知父组件
           this.triggerEvent('catDeleted', {
             catId: this.jsData.cat_id
           });
-          
+
           // 7. 根据页面栈情况执行导航
           setTimeout(() => {
             const pages = getCurrentPages();
@@ -689,5 +742,3 @@ Component({
     }
   }
 })
-
-

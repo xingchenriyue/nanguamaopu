@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 // 处理反馈
 import { formatDate } from "../../../utils/utils";
 import { sendReplyNotice } from "../../../utils/msg";
@@ -29,7 +30,7 @@ Page({
     wx.showLoading({
       title: '加载中...',
     });
-    var { result } = await app.mpServerless.db.collection('feedback').findOne({
+    var { result } = await apiDb.collection('feedback').findOne({
       _id: options.fb_id
     })
     if (!result.userInfo) {

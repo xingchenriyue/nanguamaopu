@@ -56,10 +56,10 @@
 </view>
 
 <!-- 搜索 -->
-<searchCat show="{{showSearchCat}}" disabledIds="{{existingRelationIds}}" selfId="{{cat._id}}" bind:select="searchSelectCat" bind:close="hideSearch"></searchCat>
+<searchCat show="{{showSearchCat}}" disabledIds="{{existingRelationIds}}" selfId="{{cat._id || ''}}" bind:select="searchSelectCat" bind:close="hideSearch"></searchCat>
 
 <popup id='search' show="{{showSearchType}}" bind:close="hideSearch">
-  <view class="popup-container">
+  <view class="popup-container popup-box-search">
     <view class="popup-header">
       <text>{{relationTitle || '选择关系类型'}}</text>
     </view>

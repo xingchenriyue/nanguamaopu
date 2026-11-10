@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="投喂记录管理" back="{{true}}" holder="{{true}}"></glass-nav>
 <block wx:if="{{auth}}">
   <view id='top-box'><text>这是投喂记录管理页面！\n修改时，同一月份的投喂记录用'#'分隔哦~</text></view>
   <block wx:for="{{rewards}}" wx:key="mdateStr">

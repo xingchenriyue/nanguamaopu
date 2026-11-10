@@ -1,0 +1,129 @@
+/* components/glass-nav/glass-nav.wxss */
+/* 顶部毛玻璃导航栏：整块顶部区域都是毛玻璃，LOGO + 标题 + 副标题融在玻璃里 */
+
+.glass-nav-holder {
+  width: 100%;
+  /* 高度由 wxml 内联 style 动态注入 */
+}
+
+/* 毛玻璃顶栏：从屏幕顶盖下来的一段区域，整体毛玻璃 */
+.glass-nav-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 90;
+  pointer-events: none;
+
+  /* 毛玻璃：半透明底 + 背景模糊；顶部略实、底部渐隐，融进页面背景 */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.58) 60%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+  backdrop-filter: blur(28rpx) saturate(180%);
+  -webkit-backdrop-filter: blur(28rpx) saturate(180%);
+}
+
+/* 导航行：LOGO + 标题 + 副标题，与胶囊按钮同一水平线 */
+.glass-nav-row {
+  position: absolute;
+  left: 24rpx;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.glass-nav-logo {
+  width: 52rpx;
+  height: 52rpx;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.glass-nav-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* 无 LOGO 时（关于页）：标题居中显示 */
+.glass-nav-text--center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+  max-width: 380rpx;
+}
+
+.glass-nav-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 34rpx;
+  color: #104070;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.glass-nav-subtitle {
+  font-size: 20rpx;
+  line-height: 24rpx;
+  color: var(--color-gray-max, #6B7B93);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== 子页面模式：左侧返回箭头 + 居中标题 ===== */
+
+/*
+  子页面模式：整行占满宽度，标题用绝对定位居中，
+  这样标题不会被左右两侧元素挤偏（左侧箭头、右侧胶囊按钮）。
+*/
+.glass-nav-row--back {
+  left: 0;
+  right: 0;
+  padding-left: 20rpx;
+  justify-content: flex-start;
+}
+
+/* 返回按钮：44rpx 命中区，符合移动端最小可点区域 */
+.glass-nav-back {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.glass-nav-back--hover {
+  background-color: rgba(16, 64, 112, 0.08);
+}
+
+/*
+  返回箭头：用两条边框旋转 45° 画出来，
+  不依赖额外图片资源（项目里也没有现成的左箭头图标）。
+*/
+.glass-nav-back-arrow {
+  width: 18rpx;
+  height: 18rpx;
+  border-left: 4rpx solid #104070;
+  border-bottom: 4rpx solid #104070;
+  transform: rotate(45deg);
+  margin-left: 6rpx;
+}
+
+/* 子页面模式下的标题：绝对定位居中，与原生导航栏标题位置一致 */
+.glass-nav-row--back .glass-nav-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 380rpx;
+}

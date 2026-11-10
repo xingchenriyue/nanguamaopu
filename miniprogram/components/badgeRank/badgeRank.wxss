@@ -178,7 +178,7 @@
   color: var(--color-badge-C);
 }
 
-.loading image {
+.loading .loading-img {
   width: 165.9rpx;
   height: 90.3rpx;
   margin: 10rpx 292rpx;

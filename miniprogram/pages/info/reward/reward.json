@@ -1,4 +1,8 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "投喂罐头"
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationBarTitleText": "投喂罐头",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

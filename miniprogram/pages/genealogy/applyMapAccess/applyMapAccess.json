@@ -1,4 +1,8 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "申请喵地图权限"
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationBarTitleText": "申请喵地图权限",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

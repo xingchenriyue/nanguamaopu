@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="我的领养" back="{{true}}" holder="{{true}}"></glass-nav>
 <!-- 我的领养申请列表 -->
 <view class="page">
   <view class="empty" wx:if="{{!loading && list.length === 0}}">

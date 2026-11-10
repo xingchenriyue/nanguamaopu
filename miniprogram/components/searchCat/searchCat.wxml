@@ -1,6 +1,6 @@
 <!--components/searchCat/searchCat.wxml-->
 <popup id='search' show="{{show}}" bind:close="hide">
-  <view class="popup-container">
+  <view class="popup-container popup-box-search">
     <view class="popup-header">
       <text>选择猫猫</text>
     </view>

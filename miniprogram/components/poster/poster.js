@@ -44,7 +44,9 @@ Component({
         },
         coverImg: {
             type: Object,
-            value: null,
+            // 默认值不能用 null：微信对 Object 类型属性的 null 默认值会报
+            // "expected <Object> but got non-object value" 警告，这里用空对象占位。
+            value: {},
             // 监听coverImg，换了一张图片就要清除之前的缓存
             observer(newVal, oldVal) {
                 if (oldVal && (!newVal || oldVal._id !== newVal._id)) {
@@ -139,7 +141,8 @@ Component({
                 return false;
             }
             if (!this.properties.cat) return;
-            if (!this.properties.coverImg) {
+            // coverImg 默认值是空对象 {}，因此必须同时校验 _id 才算“有封面”
+            if (!this.properties.coverImg || !this.properties.coverImg._id) {
                 wx.showToast({
                   title: '缺少封面图片，可以在相册里点击照片生成哦',
                   icon: 'none'

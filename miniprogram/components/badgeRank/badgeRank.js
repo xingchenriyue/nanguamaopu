@@ -1,3 +1,4 @@
+const apiDb = require('../../utils/api.js').db;
 // components/badgeRank/badgeRank.ts
 import {
   loadBadgeDefMap,
@@ -53,11 +54,18 @@ Component({
       })
       // 获取榜单和标签定义
       let [rankRes, badgeDefMap] = await Promise.all([
-        app.mpServerless.db.collection('badge_rank').findOne({}, { sort: { mdate: -1 } }),
+        apiDb.collection('badge_rank').findOne({}, { sort: { mdate: -1 } }),
         loadBadgeDefMap(),
       ]);
       rankRes = rankRes.result;
       if (!rankRes) {
+        this.setData({
+          dispOrder: [],
+          dispContent: {},
+          hasContent: false,
+          updateTime: null,
+          loading: false,
+        });
         return;
       }
       let updateTime = formatDate(new Date(rankRes.mdate), "yyyy-MM-dd hh:mm");

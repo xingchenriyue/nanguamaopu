@@ -1,6 +1,14 @@
 <!--miniprogram/pages/info/info.wxml-->
 <!-- <text>miniprogram/pages/info/info.wxml</text> -->
+
+<!--
+  顶部毛玻璃导航栏：只保留「关于」标题。
+  LOGO 与「南瓜猫谱」名字放在页面内容区（版本号上方），这里不再重复。
+-->
+<glass-nav title="关于" show-logo="{{false}}" show-subtitle="{{false}}"></glass-nav>
+
 <view class='mina-info'>
+  <!-- LOGO + 应用名：点击 LOGO 可查看小程序码 -->
   <image src='{{logo_img}}' bindtap="showMpCode" show-menu-by-longpress="1"></image>
   <view class='title'>{{text_cfg.app_name}}</view>
   <view class='dev'><text>{{version ? version + "\n" : ""}} {{text_cfg.info.slogan}}</text></view>
@@ -58,7 +66,7 @@
 <block wx:for="{{menuList}}" wx:key="title" wx:for-item="menu" wx:if="{{showCond[menu.show]}}">
   <view wx:if="{{menu.type != '管理后台'}}" class='block-name'>{{menu.title}}</view>
   <view wx:if="{{menu.type != '管理后台'}}" class='card-container'>
-    <view class="tool" wx:for="{{menu.items}}" wx:key="name" bindtap='clickbtn' data-to='{{item.path}}'>
+    <view class="tool" wx:for="{{menu.items}}" wx:key="name" wx:if="{{!item.show || showCond[item.show]}}" bindtap='clickbtn' data-to='{{item.path}}'>
       <view class="iconfont {{item.icon}}"></view>
       <view class="card-text" style="margin-left: 30rpx;">{{item.name}}</view>
     </view>
@@ -69,7 +77,7 @@
 <block wx:for="{{menuList}}" wx:key="title" wx:for-item="menu" wx:if="{{showCond[menu.show]}}">
   <view wx:if="{{menu.type == '管理后台'}}" class='block-name'>{{menu.title}}</view>
     <view wx:if="{{menu.type == '管理后台'}}" class="block">
-      <view wx:for="{{menu.items}}" wx:key="name" class="grid-item" bindtap='clickbtn' data-to='{{item.path}}'>
+      <view wx:for="{{menu.items}}" wx:key="name" wx:if="{{!item.show || showCond[item.show]}}" class="grid-item" bindtap='clickbtn' data-to='{{item.path}}'>
           <view class="iconfont {{item.icon}}"></view>
           <text wx:if="{{nums[item.num]}}" class="badge">{{nums[item.num]}}</text>
           <view wx:if="{{item.dot}}" class="dot"></view>

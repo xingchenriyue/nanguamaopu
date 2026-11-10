@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import {
   deepcopy,
 } from "../../../utils/utils";
@@ -13,11 +14,7 @@ Page({
 
   /**
    * 页面的初始数据
-   */
-  jsData: {
-    updatingFollowCats: false,
-  },
-  data: {
+   */  data: {
     followCount: 0,
   },
 
@@ -25,6 +22,13 @@ Page({
    * 生命周期函数--监听页面加载
    */
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      updatingFollowCats: false,
+    };
+
     await this.loadUser();
     await this.loadFollowCats();
   },
@@ -89,7 +93,7 @@ Page({
   async loadFollowCats() {
     let { openid } = this.data.user;
     // 获取用户的关注列表
-    const followCatIds = (await app.mpServerless.db.collection('user').findOne({
+    const followCatIds = (await apiDb.collection('user').findOne({
       openid: openid
     }, {
       projection: {
@@ -100,7 +104,7 @@ Page({
     console.log(followCatIds);
 
     // 加载猫猫的信息
-    const { result: followCats } = await app.mpServerless.db.collection('cat').find({ _id: { $in: followCatIds } })
+    const { result: followCats } = await apiDb.collection('cat').find({ _id: { $in: followCatIds } })
     console.log(followCats);
 
     // 批量查询头像，减少数据库请求次数

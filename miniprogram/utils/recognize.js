@@ -1,0 +1,129 @@
+/**
+ * utils/recognize.js —— 识猫模式判定、识别结果归一化、识猫服务配置的字段映射
+ * ============================================================================
+ * 【职责】
+ *   1. 识猫模式判定（getRecognizeMode）
+ *   2. 识别响应归一化（normalizeRecognizeResponse）
+ *   3. 识猫服务配置（MeowID 接入参数）的存储位置与字段映射规则
+ * 【依赖】无（纯函数，可在 node 下直接跑单测）
+ * 【注意事项】
+ *   - mode 取 off / custom / meowid，实际值来自数据库设置。
+ *   - 识猫服务配置原本走 api.meowid({action:'saveConfig'}) 写 app_secret 的
+ *     MEOWID_* 字段，但 PG 列式表没有这些列 → 后端「丢弃未知写入字段」，
+ *     用户填的值永远存不下来。现在统一写进 setting 表 pages 行的 recognize 列。
+ * ============================================================================
+ */
+
+/**
+ * 识猫服务配置的存储位置。
+ *
+ * 【为什么要抽成常量】
+ * 后端若决定改存独立行（例如 setting 表的 _id='meowidConfig'），
+ * 只需要改这里的 TARGET / COLUMN 两处，调用方代码不用动。
+ */
+const MEOWID_CONFIG_TARGET = 'pages';
+const MEOWID_CONFIG_COLUMN = 'recognize';
+
+/**
+ * 识猫服务配置字段映射：表单字段名 → recognize 对象里的键名。
+ * 键名沿用后端 app_secret 的 MEOWID_* 语义（去前缀 + 驼峰）。
+ */
+const MEOWID_CONFIG_FIELDS = {
+  cfgBaseUrl: 'meowidBaseUrl',
+  cfgProjectId: 'meowidProjectId',
+  cfgApiKey: 'meowidApiKey',
+  cfgTopK: 'meowidTopK',
+  cfgThreshold: 'meowidThreshold',
+  cfgEnrollImages: 'meowidEnrollImages',
+};
+
+/**
+ * 合并 recognize 对象（不修改入参）。
+ *
+ * 【为什么必须合并而不是整体覆盖】
+ * recognize 这一棵树上同时住着三处入口管理的字段：
+ *   - 页面配置页：showRecognizeBtn / interfaceURL
+ *   - 识猫服务页（模式区）：mode / secretKey
+ *   - 识猫服务页（服务配置区）：meowid* 六个字段
+ * PG 的 jsonb 是整列替换，任何一处保存都会把整棵树盖掉，
+ * 所以任一入口保存前都必须先读出现值再叠加自己的字段。
+ */
+function mergeRecognize(existing, patch) {
+  return Object.assign({}, existing || {}, patch || {});
+}
+
+/**
+ * 把表单值转成 recognize 补丁。
+ * 空字符串（'' / undefined / null）视为「用户没填这一项」→ 不写进补丁，
+ * 保留库中原值（对应页面上的「留空保留已保存的密钥 / 项目」提示）。
+ */
+function buildConfigPatch(formValues) {
+  const patch = {};
+  const form = formValues || {};
+  for (const formKey in MEOWID_CONFIG_FIELDS) {
+    const value = form[formKey];
+    if (value === undefined || value === null || value === '') continue;
+    patch[MEOWID_CONFIG_FIELDS[formKey]] = value;
+  }
+  return patch;
+}
+
+/**
+ * 从 recognize 对象里读出服务配置，回填到表单。
+ * 接口密钥不回显（永远返回空串）—— 密钥只写不读，避免明文回流到页面。
+ */
+function readMeowidConfig(recognize) {
+  const r = recognize || {};
+  const positiveInt = (v, dflt) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : dflt;
+  };
+  let threshold = '';
+  if (r.meowidThreshold !== undefined && r.meowidThreshold !== null && r.meowidThreshold !== '') {
+    const n = Number(r.meowidThreshold);
+    threshold = Number.isFinite(n) ? n : '';
+  }
+  return {
+    cfgBaseUrl: typeof r.meowidBaseUrl === 'string' ? r.meowidBaseUrl : '',
+    cfgProjectId: typeof r.meowidProjectId === 'string' ? r.meowidProjectId : '',
+    cfgApiKey: '',
+    cfgTopK: positiveInt(r.meowidTopK, 5),
+    cfgThreshold: threshold,
+    cfgEnrollImages: positiveInt(r.meowidEnrollImages, 5),
+  };
+}
+
+function getRecognizeMode(settings) {
+  if (!settings) return 'off';
+  const mode = settings.mode;
+  // mode 缺失（老数据 / 库里从没写过）时回退到 showRecognizeBtn：
+  // PG 的 NULL 序列化成 JSON null，所以要用 == null 一起判，
+  // 否则 null 会掉到下面的 includes() 分支被误判成 'off'。
+  if (mode === undefined || mode === null) {
+    return settings.showRecognizeBtn === true ? 'custom' : 'off';
+  }
+  return ['off', 'custom', 'meowid'].includes(mode) ? mode : 'off';
+}
+
+function normalizeRecognizeResponse(response, mode) {
+  if (!response || response.ok !== true) return response;
+  const data = Object.assign({}, response.data || {});
+  data.catBoxes = Array.isArray(data.catBoxes) ? data.catBoxes : [];
+  data.recognizeResults = Array.isArray(data.recognizeResults) ? data.recognizeResults : [];
+  if (mode === 'custom' && !Number.isInteger(data.catCount)) {
+    data.catCount = Math.max(data.catBoxes.length, data.recognizeResults.length ? 1 : 0);
+  }
+  data.provider = mode;
+  return Object.assign({}, response, { data });
+}
+
+module.exports = {
+  getRecognizeMode,
+  normalizeRecognizeResponse,
+  MEOWID_CONFIG_TARGET,
+  MEOWID_CONFIG_COLUMN,
+  MEOWID_CONFIG_FIELDS,
+  mergeRecognize,
+  buildConfigPatch,
+  readMeowidConfig,
+};

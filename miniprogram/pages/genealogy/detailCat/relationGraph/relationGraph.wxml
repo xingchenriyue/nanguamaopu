@@ -1,3 +1,10 @@
+
+<!--
+  顶部毛玻璃导航栏（返回 + 标题）
+  holder="{{true}}"：画布是 100vh 全屏 + 拖拽交互，不能加顶部留白（会破坏画布坐标），
+  用占位块把画布整体下推到玻璃下方即可。
+-->
+<glass-nav title="关系图谱" back="{{true}}" holder="{{true}}"></glass-nav>
 <view class="viewport" bindtouchstart="onDragStart" catchtouchmove="onDragMove" bindtouchend="onDragEnd">
   <!-- 固定背景，不随画布拖动 -->
   <image class="bg-fixed" src="/pages/public/images/system/background.svg" mode="aspectFill"></image>

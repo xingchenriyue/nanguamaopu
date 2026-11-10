@@ -1,9 +1,23 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="便利贴墙" back="{{true}}" holder="{{false}}"></glass-nav>
 <!--pages/genealogy/commentBoard.wxml-->
 
-<scroll-view id="comment-list" scroll-y="true" bindscrolltolower='loadMoreComment' enable-back-to-top="true" bindscroll="bindCommentScroll" enable-flex="1">
+<!--
+  高度用 CSS 的 100%（= page 全屏高，custom 导航下即整个屏幕），
+  不用 inline screenHeight —— 因为 enable-flex="1" 需要容器高度由 flex 上下文决定，
+  写死高度会让 flex 子项被压缩、滚动区与视口错位。
+-->
+<scroll-view id="comment-list" style="--nav-h: {{navTotalHeight}}px;" scroll-y="true" bindscrolltolower='loadMoreComment' enable-back-to-top="true" bindscroll="bindCommentScroll" enable-flex="1">
+  <!--
+    顶部留白：让开毛玻璃顶栏，滚动时内容从其下方穿过。
+    必须 flex-shrink:0 —— #comment-list 是 flex 列容器，
+    否则这个留白会被 flex 压缩，导致滚动区与视口错位、滑不回顶部。
+  -->
+  <view class="comment-top-spacer" style="height: {{navTotalHeight}}px;"></view>
   <!-- 猫猫名称 -->
   <view class='big-header'>
-    <image class='avatar' mode='aspectFill' src='{{cat.avatar.photo_compressed || cat.avatar.photo_id || "/pages/public/images/app_logo.png"}}'></image>
+    <image class='avatar' mode='aspectFill' src='{{cat.avatar.photo_compressed || cat.avatar.photo_id || logoPath}}'></image>
     <view class='name-and-count'>
       <view class='name'>{{cat.name}}的便利贴墙</view>
       <view class='count'>共{{comment_count}}张便利贴</view>
@@ -18,7 +32,7 @@
       <view class="user-info">
         <view class="user-avatar">
           <image wx:if="{{!item.needVerify && item.userInfo}}" class="avatar" src="{{item.userInfo.avatarUrl}}" mode='aspectFit'></image>
-          <image wx:else class="avatar" src="/pages/public/images/app_logo.png" mode='aspectFit'></image>
+          <image wx:else class="avatar" src="{{logoPath}}" mode='aspectFit'></image>
         </view>
         <view class="username">
           <text wx:if="{{item.needVerify}}">喵友</text>

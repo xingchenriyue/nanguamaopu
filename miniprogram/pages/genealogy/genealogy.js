@@ -1,3 +1,4 @@
+const apiDb = require('../../utils/api.js').db;
 import {
   shuffle,
   regReplace,
@@ -13,9 +14,10 @@ import {
   getCatCommentCount
 } from "../../utils/comment";
 import { getUserInfo } from "../../utils/user";
+import { getRecognizeMode } from "../../utils/recognize";
 import cache from "../../utils/cache";
 import config from "../../config";
-import { loadFilter, getGlobalSettings, showTab } from "../../utils/page";
+import { loadFilter, getGlobalSettings, showTab, initLayout } from "../../utils/page";
 import { isManagerAsync, checkCanShowNews, checkCanUpload, checkCanComment } from "../../utils/user";
 import { signCosUrl } from "../../utils/common";
 
@@ -35,6 +37,16 @@ Page({
     filters_show_shadow: false,
     filters_empty: true,
     heights: { filters: 40 },
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 底部悬浮 dock 占位高度（由 initLayout 注入）
+    tabBarHeight: 0,
+    // 导航条下方可用高度（由 initLayout 注入）
+    contentHeight: 0,
+    // 毛玻璃顶栏带高度（由 initLayout 注入）
+    navBandHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
     catsMax: 0,
     loading: false,
     loadnomore: false,
@@ -47,9 +59,12 @@ Page({
     text_cfg: config.text,
     // 新增：数据加载完成标志
     dataReady: false,
-    // 卡片展开：当前展开的卡片索引，-1 表示无；展开后加 wide 样式、滚动到顶部、显示动作按钮
+    // 卡片展开：当前展开的卡片索引，-1 表示无；展开后加 wide 样式、显示动作按钮
     expandedCatIndex: -1,
-    // scroll-view 的 scroll-top，展开时计算带余量的目标值平滑滚动，避免顶部被遮挡
+    // scroll-view 的 scroll-top（一次性触发用）。
+    // 【重要】scroll-top 是「数据变化时触发一次滚动」的属性，
+    // 若长期保持非 0 值，用户手动滚动后会被强制拉回该位置 → 表现为「滑不回顶部」。
+    // 因此每次设置后立即归零，让它只作为一次性指令使用。
     targetScrollTop: 0,
     // 是否管理员（控制展开卡片右上角"管理"按钮显示）
     isManager: false,
@@ -58,27 +73,22 @@ Page({
     canComment: true
   },
 
-  jsData: {
-    catsStep: 1,
-    loadingLock: 0,
-    pageLoadingLock: false,
-    // 新增：待处理的scene参数
-    pendingScene: null
-  },
-
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
-    if (!this.jsData) {
-      this.jsData = {
-        catsStep: 1,
-        loadingLock: 0,
-        pageLoadingLock: false,
-        pendingScene: null
-      };
-    }
-    
+    // jsData 必须是页面实例属性，不能作为 Page 的顶层选项：
+    // 微信会把 Page 顶层的未知选项当成「游离数据」走 setData，
+    // 它的值是对象时就会报 "Free data with key \"jsData\" ... seems not a simple value"。
+    // 注意：放进 data 里反而是允许的，data 中的对象/数组不会触发此警告。
+    this.jsData = {
+      catsStep: 1,
+      loadingLock: 0,
+      pageLoadingLock: false,
+      // 新增：待处理的scene参数
+      pendingScene: null
+    };
+
     // 保存scene参数，但不立即处理
     if (options.scene) {
       const scene = decodeURIComponent(options.scene);
@@ -189,7 +199,7 @@ Page({
     const scene = this.jsData.pendingScene;
     if (scene.startsWith('toC=')) {
       const cat_No = scene.substr(4);
-      const { result: cat_res } = await app.mpServerless.db.collection('cat').find({ _no: cat_No, deleted: { $ne: 1 } }, { projection: { _id: 1 } });
+      const { result: cat_res } = await apiDb.collection('cat').find({ _no: cat_No, deleted: { $ne: 1 } }, { projection: { _id: 1 } });
       
       if (!cat_res.length) {
         wx.showToast({
@@ -220,7 +230,7 @@ Page({
     const index = this.data.cats.findIndex(cat => cat._id === catId);
     if (index === -1) return;
     
-    const { result: [updatedCat] } = await app.mpServerless.db.collection('cat').find({ 
+    const { result: [updatedCat] } = await apiDb.collection('cat').find({ 
       _id: catId, 
       deleted: { $ne: 1 } 
     });
@@ -251,11 +261,15 @@ Page({
 
   onShow: function () {
     showTab(this);
+    this.loadRecognize();
   },
 
   loadRecognize: async function () {
-    const settings = await getGlobalSettings('recognize');
-    const showRecognize = settings && settings.showRecognizeBtn === true;
+    const settings = await getGlobalSettings('recognize', { nocache: true }) || {};
+    const mode = getRecognizeMode(settings);
+    // mode 是总闸（off 直接不显示）；showRecognizeBtn 是展示闸。
+    // 两个都通过才显示首页识猫入口按钮。
+    const showRecognize = mode !== 'off' && settings.showRecognizeBtn !== false;
     this.setData({ showRecognize: !!showRecognize });
   },
 
@@ -373,6 +387,8 @@ Page({
 
   onReady: function () {
     this.getHeights();
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
   },
 
   onReachBottom: async function () {
@@ -414,7 +430,7 @@ Page({
     const nowLoadingLock = this.jsData.loadingLock;
     
     const query = await this.fGet();
-    const { result: cat_count } = await app.mpServerless.db.collection('cat').count(query);
+    const { result: cat_count } = await apiDb.collection('cat').count(query);
     
     if (this.jsData.loadingLock !== nowLoadingLock) return false;
     
@@ -424,11 +440,13 @@ Page({
     this.setData({
       cats: [],
       expandedCatIndex: -1,
-      targetScrollTop: 0,
       catsMax: cat_count,
       loadnomore: false,
       filters_empty: Object.keys(query).length === 0,
     });
+
+    // 列表重载后回到顶部（一次性触发，详见 scrollToOnce 的说明）
+    this.scrollToOnce(0);
     
     await Promise.all([
       this.loadMoreCats(),
@@ -449,7 +467,7 @@ Page({
     const step = this.jsData.catsStep;
     const query = await this.fGet();
     
-    let { result: new_cats } = await app.mpServerless.db.collection('cat').find(query, { 
+    let { result: new_cats } = await apiDb.collection('cat').find(query, { 
       sort: { mphoto: -1, popularity: -1 }, 
       skip: cats.length, 
       limit: step 
@@ -587,7 +605,13 @@ Page({
     this.toggleExpand(index);
   },
 
-  // 展开/收起卡片：展开时加 wide 样式 + 平滑滚动到顶部 + 显示动作按钮；再次点击进入详情相册
+  // 展开/收起卡片：展开时加 wide 样式 + 显示动作按钮；再次点击进入详情相册
+  //
+  // 【展开时的滚动策略】
+  // 展开后卡片变高（照片 + 信息 + 操作按钮），如果卡片顶部正好在
+  // 「悬浮搜索栏 / 毛玻璃顶栏」下方，展开出来的内容会被它们盖住。
+  // 这里做**最小幅度**的微调：只把卡片往下推到刚好不被遮挡的位置，
+  // 而不是像老实现那样把卡片顶到滚动区最顶端（那会「弹到最顶上」）。
   toggleExpand(index) {
     if (this.data.expandedCatIndex === index) {
       // 再次点击同一张展开卡片 → 进入详情相册（带列表数据做首屏秒开）
@@ -597,11 +621,21 @@ Page({
       }
       return;
     }
-    // 展开新卡片（自动收起旧的）
-    this.setData({ expandedCatIndex: index });
+    // 展开新卡片（自动收起旧的）。只改样式，不动滚动位置。
+    this.setData({ expandedCatIndex: index }, () => {
+      this.ensureExpandedCardVisible(index);
+    });
+  },
 
-    // 计算带余量的 scrollTop：用 selectorQuery 获取 card 相对 scroll-view 的位置，
-    // 减去顶部余量（40rpx），避免 card 顶部贴 scroll-view 顶部过近被上方 #search 阴影遮挡
+  /**
+   * 展开卡片后，保证卡片内容不会被悬浮搜索栏 / 毛玻璃顶栏遮住
+   *
+   * 做法：量出卡片当前的位置，若卡片顶部已经在遮挡区之下（或之下足够），
+   * 就完全不动滚动位置（保持「原地展开」）；
+   * 只有当卡片顶部进入了遮挡区，才做最小幅度的下移，
+   * 让卡片顶部刚好落在遮挡区下沿 —— 不会把卡片顶到滚动区最顶端。
+   */
+  ensureExpandedCardVisible(index) {
     wx.nextTick(() => {
       const query = wx.createSelectorQuery();
       query.select('#card-' + index).boundingClientRect();
@@ -609,17 +643,55 @@ Page({
       query.select('.cards').boundingClientRect();
       query.exec(res => {
         if (!res || !res[0] || !res[1] || !res[2]) return;
-        const cardRect = res[0];        // card 相对视口的位置
-        const scrollInfo = res[1];      // scroll-view 当前 scrollTop
-        const svRect = res[2];          // scroll-view 相对视口的位置
-        // card 在 scroll-view 内容流中的偏移
-        const cardOffsetTop = cardRect.top - svRect.top + scrollInfo.scrollTop;
-        // 顶部余量 40rpx 转 px
-        const rpxToPx = wx.getWindowInfo().windowWidth / 750;
-        const offset = 40 * rpxToPx;
-        const targetScrollTop = Math.max(0, cardOffsetTop - offset);
-        this.setData({ targetScrollTop });
+        const cardRect = res[0];
+        const scrollInfo = res[1];   // 滚动区当前真实 scrollTop
+        const svRect = res[2];       // 滚动区相对视口的位置
+
+        // 遮挡区下沿（视口坐标）：毛玻璃顶栏底边 + 悬浮搜索栏高度
+        const occludeBottom = this.data.navTotalHeight + this.data.heights.filters;
+
+        // 卡片顶部相对视口的位置
+        const cardTop = cardRect.top;
+        if (cardTop >= occludeBottom) {
+          // 卡片本来就没被遮挡 → 完全不动，保持原地展开
+          return;
+        }
+
+        // 被遮挡了：算出需要下移多少（只在卡片顶部被遮住时才移）
+        const needScroll = occludeBottom - cardTop;
+        // 目标滚动位置 = 当前真实滚动位置 + 需要下移的量
+        const target = scrollInfo.scrollTop + needScroll;
+        this.scrollToOnce(target);
       });
+    });
+  },
+
+  /**
+   * 一次性滚动到指定位置
+   * ---------------------------------------------------------------------------
+   * 【为什么不能直接用 scroll-top="{{targetScrollTop}}"】
+   * scroll-top 是「数据值变化时触发一次滚动」的属性。若该值长期保持非 0，
+   * 用户手动滚动后会被强制拉回该位置 —— 表现为「往回滑却滑不回顶部」。
+   *
+   * 【本方法的做法】
+   * 1. 先把值置为一个与当前不同的目标值，触发滚动；
+   * 2. 下一帧立刻归零，让绑定值回到「无指令」状态。
+   * 这样每次调用只产生一次滚动，之后用户可以自由滚动。
+   *
+   * @param {Number} top 目标滚动位置（px），0 表示回到顶部
+   */
+  scrollToOnce(top) {
+    const target = Math.max(0, Math.round(top));
+    // 与当前值不同才能触发；相同则先归零再设置
+    if (this.data.targetScrollTop === target) {
+      this.setData({ targetScrollTop: 0 }, () => {
+        this.setData({ targetScrollTop: target });
+      });
+      return;
+    }
+    this.setData({ targetScrollTop: target }, () => {
+      // 归零，解除持续绑定（用 0 与目标值不同，确保 setData 生效）
+      this.setData({ targetScrollTop: 0 });
     });
   },
 
@@ -1031,7 +1103,7 @@ Page({
   async countWaitingAdopt() {
     const target = config.cat_status_adopt_target;
     const value = config.cat_status_adopt.indexOf(target);
-    const { result: adopt_count } = await app.mpServerless.db.collection('cat').count({ adopt: value, deleted: { $ne: 1 } });
+    const { result: adopt_count } = await apiDb.collection('cat').count({ adopt: value, deleted: { $ne: 1 } });
     this.setData({ adopt_count });
   },
 
@@ -1124,7 +1196,7 @@ Page({
   async loadNews() {
     if (!await checkCanShowNews()) return;
     
-    const { result: newsList } = await app.mpServerless.db.collection('news').find({ 
+    const { result: newsList } = await apiDb.collection('news').find({ 
       setNewsModal: true 
     }, { sort: { date: -1 } });
     

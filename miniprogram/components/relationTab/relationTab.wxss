@@ -243,7 +243,8 @@
 }
 
 /* 弹窗 */
-#search .popup-container {
+/* 组件 wxss 禁用 ID 选择器：原 `#search .popup-container` 改为类选择器 */
+.popup-box-search {
   width: 100%;
   max-height: 80vh;
   background-color: white;

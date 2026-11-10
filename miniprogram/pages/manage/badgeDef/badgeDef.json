@@ -1,6 +1,9 @@
 {
   "usingComponents": {
-    "no-auth": "/components/noAuth/noAuth"
+    "no-auth": "/components/noAuth/noAuth",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
-  "navigationBarTitleText": "徽章管理"
+  "navigationBarTitleText": "徽章管理",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

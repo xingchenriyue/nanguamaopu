@@ -1,0 +1,9 @@
+{
+  "usingComponents": {
+    "popup": "/components/popup/popup",
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "喵地图"
+}

@@ -1,9 +1,7 @@
 /* components/badgeModal/badgeModal.wxss */
 /* 以下为 pages/manage/badgeDef/badgeDef.wxss 的内容拷贝（分包隔离，不能直接 @import 跨包文件）——原 components/badgeModal/badgeModal.wxss 中 @import */
 /* pages/manage/badgeDef/badgeDef.wxss */
-page {
-  background-color: var(--color-gray-light);
-}
+/* 注：组件 wxss 禁用标签/ID/属性选择器，原 `page {}` 在组件内本就无效（弹窗底色由 popup 组件提供），已移除 */
 
 .badge {
   display: flex;
@@ -16,7 +14,7 @@ page {
   justify-content: space-between;
 }
 
-.badge image {
+.badge .badge-thumb {
   width: 150rpx;
   height: 150rpx;
 }
@@ -52,11 +50,15 @@ page {
   justify-content: space-evenly;
 }
 
-button.primary {
+.primary {
   margin: 20rpx auto 30rpx auto;
   background-color: var(--color-primary);
   color: var(--color-text-onPrimary);
   width: 300rpx;
+}
+/* 按钮默认边框重置（改用类选择器，组件 wxss 不允许 button 标签选择器） */
+.primary::after {
+  border: none;
 }
 
 .badge-level-A .badge-name {

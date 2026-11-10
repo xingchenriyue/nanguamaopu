@@ -1,3 +1,4 @@
+const apiDb = require('../../../../../utils/api.js').db;
 import {
   getUser
 } from "../../../../../utils/user";
@@ -11,7 +12,8 @@ import {
 } from "../../../../../utils/badge";
 import {
   getGlobalSettings
-} from "../../../../../utils/page";
+} from "../../../../../utils/page"
+import { initLayout } from "../../../../../utils/page";;
 
 import api from "../../../../../utils/cloudApi";
 const app = getApp();
@@ -21,6 +23,8 @@ Page({
    * 页面的初始数据
    */
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
     rotateAnimation: null,
     shakeAnimation: null,
     nextFreeBadgesHours: 0,
@@ -29,28 +33,36 @@ Page({
     todayVideoLimit: 6,
   },
 
-  jsData: {
-    waitingBadge: [],  // 等待抽取的徽章（弹窗关闭后抽取）
-    badgeDefMap: null,
-    rotateAnimationObj: wx.createAnimation({
-      duration: 800,
-      timingFunction: 'ease-in', // "linear","ease","ease-in","ease-in-out","ease-out","step-start","step-end"
-      delay: 0,
-      transformOrigin: '50% 50% 0'
-    }),
-    rotateCounter: 0,
-    shakeAnimationObj: wx.createAnimation({
-      duration: 12,
-      timingFunction: 'ease-in', // "linear","ease","ease-in","ease-in-out","ease-out","step-start","step-end"
-      delay: 0,
-      transformOrigin: '50% 50% 0'
-    }),
-  },
 
+  onLoad() {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
+  },
   /**
    * 生命周期函数--监听页面加载
    */
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      waitingBadge: [],  // 等待抽取的徽章（弹窗关闭后抽取）
+      badgeDefMap: null,
+      rotateAnimationObj: wx.createAnimation({
+        duration: 800,
+        timingFunction: 'ease-in', // "linear","ease","ease-in","ease-in-out","ease-out","step-start","step-end"
+        delay: 0,
+        transformOrigin: '50% 50% 0'
+      }),
+      rotateCounter: 0,
+      shakeAnimationObj: wx.createAnimation({
+        duration: 12,
+        timingFunction: 'ease-in', // "linear","ease","ease-in","ease-in-out","ease-out","step-start","step-end"
+        delay: 0,
+        transformOrigin: '50% 50% 0'
+      }),
+    };
+
     await this.loadUser()
     await this.loadAD()
     await this.reloadUserBadge()
@@ -143,7 +155,7 @@ Page({
       this.jsData.badgeDefMap = await loadBadgeDefMap();
       await this.checkBadgeDefEmpty();
     }
-    const { result: lastesBadges } = await app.mpServerless.db.collection("badge").find({
+    const { result: lastesBadges } = await apiDb.collection("badge").find({
       _openid: this.data.user.openid,
       reason: "checkIn"
     }, {
@@ -178,14 +190,14 @@ Page({
 
   async checkDailyLimit() {
     // 检查广告次数上限
-    const { result: picAdBadges } = await app.mpServerless.db.collection("badge").find({
+    const { result: picAdBadges } = await apiDb.collection("badge").find({
       _openid: this.data.user.openid,
       reason: "watchPictureAD"
     }, {
       sort: { acquireTime: -1 },
       limit: 10
     })
-    const { result: videoAdBadges } = await app.mpServerless.db.collection("badge").find({
+    const { result: videoAdBadges } = await apiDb.collection("badge").find({
       _openid: this.data.user.openid,
       reason: "watchVideoAD"
     }, {

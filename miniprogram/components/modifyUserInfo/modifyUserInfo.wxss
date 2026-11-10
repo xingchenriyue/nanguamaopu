@@ -69,7 +69,9 @@
   padding: 20rpx 0 20rpx 0;
 }
 
-picker, input {
+/* 组件 wxss 禁用标签选择器，原 `picker, input` 改为类选择器。
+   原规则里的 font-size:28rpx 会被更高优先级的 .user-name(50rpx) 覆盖，故不再重复声明。 */
+.form-input {
   border-bottom: 2rpx var(--color-primary) solid;
   background-color: var(--color-white-dark);
   padding: 15rpx;
@@ -79,10 +81,10 @@ picker, input {
   margin-bottom: 80rpx;
 }
 
-button.primary::after {
+.primary::after {
   border: none;
 }
-button.primary {
+.primary {
   border-radius: 100rpx;
   background-color: var(--color-primary);
   color: var(--color-text-onPrimary);

@@ -12,11 +12,14 @@ $RECYCLE.BIN/
 
 # Node.js
 node_modules/
-miniprogram_npm/
+**/miniprogram_npm/*
+# 海报组件依赖 wx-canvas-2d 在上游从未声明，必须随仓库携带，否则 poster 组件报 canvas.create is not a function
+!**/miniprogram_npm/wx-canvas-2d/
 cloudfunctions/package-lock.json
 project.private.config.json
 miniprogram/appSecret.js
 .secret.yaml
+.meowid-probe.env
 miniprogram/signKey.js
 .app.yaml
 

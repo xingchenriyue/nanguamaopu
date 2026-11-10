@@ -1,7 +1,9 @@
 /* miniprogram/pages/info/info.wxss */
 page {
   width: 750rpx;
-  padding: 30rpx 30rpx;
+  /* 顶部不留 padding —— glass-nav 的占位块要正好贴着玻璃栏下沿，
+     左右/底部保留原间距 */
+  padding: 0 30rpx 30rpx 30rpx;
   box-sizing: border-box;
   background-color: var(--color-gray-light);
 }
@@ -101,6 +103,8 @@ page {
 
 /* 下面是旧的 */
 
+/* ===== 关于页顶部的 LOGO + 应用名（版本号上方） ===== */
+
 .mina-info image {
   width: 150rpx;
   height: 150rpx;
@@ -110,7 +114,8 @@ page {
 
 .mina-info .title {
   font-size: 33rpx;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--color-primary-text, #104070);
   margin-top: 20rpx;
 }
 

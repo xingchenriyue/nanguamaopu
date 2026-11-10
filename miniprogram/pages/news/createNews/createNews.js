@@ -6,7 +6,7 @@ import {
   checkAuth
 } from "../../../utils/user";
 import api from "../../../utils/cloudApi";
-import { uploadFile } from "../../../utils/common"
+import { uploadFile, isWriteOk, normalizeWriteResult } from "../../../utils/common"
 const app = getApp();
 Page({
   /**
@@ -61,7 +61,9 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
-    await checkAuth(this, 2);
+    // 发布公告按设计是 Level-3（见人员管理的等级说明与 unionOp/curdOp.js 的 add.news=3），
+    // 原来写 2 会让 2 级管理员能打开表单但一提交就报 not a manager。
+    await checkAuth(this, 3);
   },
 
   onShow: async function () {
@@ -109,12 +111,25 @@ Page({
       });
       return;
     }
-    var res = await wx.chooseMedia({
-      count: 9 - this.data.photos.length,
-      mediaType: ['image'],
-      sizeType: ["compressed"],
-      sourceType: ['album'],
-    })
+    var res;
+    try {
+      res = await wx.chooseMedia({
+        count: 9 - this.data.photos.length,
+        mediaType: ['image'],
+        sizeType: ["compressed"],
+        sourceType: ['album'],
+      })
+    } catch (err) {
+      // 用户主动取消（chooseMedia:fail cancel）不是错误，静默返回，
+      // 否则会变成未处理的 Promise 拒绝（app.js 会打印告警）
+      const errMsg = (err && (err.errMsg || err.message)) || '';
+      if (errMsg.includes('cancel')) {
+        return;
+      }
+      console.error('[chooseImg] 选择图片失败:', err);
+      wx.showToast({ title: '选择图片失败', icon: 'none' });
+      return;
+    }
 
     var photos = this.data.photos;
     for (const file of res.tempFiles) {
@@ -163,12 +178,25 @@ Page({
       });
       return;
     }
-    var res = await wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sizeType: ["compressed"],
-      sourceType: ['album'],
-    })
+    var res;
+    try {
+      res = await wx.chooseMedia({
+        count: 1,
+        mediaType: ['image'],
+        sizeType: ["compressed"],
+        sourceType: ['album'],
+      })
+    } catch (err) {
+      // 用户主动取消（chooseMedia:fail cancel）不是错误，静默返回，
+      // 否则会变成未处理的 Promise 拒绝（app.js 会打印告警）
+      const errMsg = (err && (err.errMsg || err.message)) || '';
+      if (errMsg.includes('cancel')) {
+        return;
+      }
+      console.error('[chooseCover] 选择图片失败:', err);
+      wx.showToast({ title: '选择图片失败', icon: 'none' });
+      return;
+    }
 
     for (const file of res.tempFiles) {
       this.setData({
@@ -352,9 +380,11 @@ Page({
       data: data
     });
     console.log("newOp(create) Result:", res);
-    if (res.ok) {
+    // 【成功判定 + 取 id】后端返回 { result: { insertedId }, ok: true }（result 嵌套）
+    const wr = normalizeWriteResult(res);
+    if (wr.ok) {
       that.setData({
-        news_id: res.insertedId
+        news_id: wr.insertedId
       });
       wx.showToast({
         title: '发布成功',

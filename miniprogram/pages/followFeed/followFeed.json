@@ -1,6 +1,10 @@
 {
   "usingComponents": {
-    "popup": "/components/popup/popup"
+    "popup": "/components/popup/popup",
+    "heart": "/packages/heart-button/heart",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "喵友圈"
 }

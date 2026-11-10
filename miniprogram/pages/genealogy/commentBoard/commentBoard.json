@@ -1,5 +1,8 @@
 {
   "usingComponents": {
-    "heart": "/packages/heart-button/heart"
-  }
+    "heart": "/packages/heart-button/heart",
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

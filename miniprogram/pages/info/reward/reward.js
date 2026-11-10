@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 // miniprogram/pages/info/reward/reward.js
 import { text as text_cfg, reward_img } from "../../../config";
 import { checkCanReward } from "../../../utils/user";
@@ -15,12 +16,15 @@ Page({
     text_cfg: text_cfg,
   },
 
-  jsData: {
-    // 在页面中定义激励视频广告
-    videoAd: null,
-  },
-
   onLoad: async function (option) {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      // 在页面中定义激励视频广告
+      videoAd: null,
+    };
+
     this.loadReward();
     // 是否开启
     this.setData({
@@ -74,7 +78,7 @@ Page({
   },
 
   async loadReward() {
-    var { result: rewardRes } = await app.mpServerless.db.collection('reward').find({}, { sort: { mdate: -1 } })
+    var { result: rewardRes } = await apiDb.collection('reward').find({}, { sort: { mdate: -1 } })
 
     console.log(rewardRes);
     for (var r of rewardRes) {

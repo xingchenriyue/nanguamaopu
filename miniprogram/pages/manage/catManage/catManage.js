@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import { checkAuth } from "../../../utils/user";
 import { getAvatar, getCatItem } from "../../../utils/cat";
 import config from "../../../config";
@@ -42,6 +43,15 @@ Page({
         this.setData({ activeTab: options.activeTab });
       }
     }
+  },
+
+  /**
+   * 触底加载
+   */
+  async onReachBottom() {
+    if (!this.data.auth || this.data.activeTab !== 'info') return;
+    const infoTab = this.selectComponent('#catInfoTab');
+    if (infoTab) await infoTab.loadMorePhotos();
   },
 
   /**
@@ -123,7 +133,7 @@ Page({
     try {
       wx.showLoading({ title: '搜索中...' });
       // 搜索名称或昵称，排除已删除的猫咪
-      const { result } = await app.mpServerless.db.collection('cat').find({
+      const { result } = await apiDb.collection('cat').find({
         $or: [
           { name: { $regex: keyword} },
           { nickname: { $regex: keyword} },
@@ -181,7 +191,7 @@ Page({
   /**
    * 通过ID获取猫咪信息
    */
-  async getCatById(catId) {
+  async getCatById(catId, options) {
     if (!catId) return;
 
     try {
@@ -189,7 +199,7 @@ Page({
       console.log('正在获取猫咪信息, ID:', catId);
 
       // 获取猫咪基本信息和头像
-      const cat = await getCatItem(catId);
+      const cat = await getCatItem(catId, options);
       cat.avatar = await getAvatar(cat._id);
 
       console.log('获取到猫咪信息:', cat);
@@ -249,6 +259,9 @@ Page({
       if (relationTab) {
         relationTab.addRelation();
       }
+    } else if (this.data.activeTab === 'medical') {
+      const medicalRecords = this.selectComponent('#medicalRecords');
+      if (medicalRecords) medicalRecords.addRecord();
     }
   },
 
@@ -305,6 +318,12 @@ Page({
     }
   },
 
+  onMedicalRecordsChanged() {
+    if (this.data.selectedCat) {
+      this.getCatById(this.data.selectedCat._id, { nocache: true });
+    }
+  },
+
   // 信息选项卡模式变化
   onInfoTabModeChange(e) {
     const isNewCat = e.detail.isNewCat;
@@ -316,7 +335,7 @@ Page({
   // 按钮
   handleActionButtonClick() {
     const { activeTab } = this.data;
-    if (activeTab === 'relation') {
+    if (activeTab === 'relation' || activeTab === 'medical') {
       this.handleAddRecord();
     } else if (activeTab === 'haunt') {
       this.addHaunt();

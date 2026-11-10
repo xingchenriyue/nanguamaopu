@@ -1,3 +1,4 @@
+const apiDb = require('../../utils/api.js').db;
 import { getAvatar, getCatItemMulti } from "../../utils/cat";
 import api from "../../utils/cloudApi";
 const app = getApp();
@@ -249,7 +250,7 @@ Component({
         let legacyTypes = (cacheTypes && Array.isArray(cacheTypes.types)) ? cacheTypes.types : [];
 
         // 读 rules 与 types
-        const { result } = await app.mpServerless.db.collection('setting').find({ _id: 'relation' });
+        const { result } = await apiDb.collection('setting').find({ _id: 'relation' });
         if (result && result.length > 0) {
           const doc = result[0];
           if (Array.isArray(doc.rules)) {
@@ -448,7 +449,7 @@ Component({
         wx.showLoading({
           title: loadingTitle || '加载中...',
         });
-        const { result: cat } = await app.mpServerless.db.collection('cat').findOne({ _id: catId, deleted: { $ne: 1 } });
+        const { result: cat } = await apiDb.collection('cat').findOne({ _id: catId, deleted: { $ne: 1 } });
         if (!cat) {
           throw new Error('未找到猫咪');
         }

@@ -1,6 +1,9 @@
 {
   "usingComponents": {
-    "modifyUserInfo": "/components/modifyUserInfo/modifyUserInfo"
+    "modifyUserInfo": "/components/modifyUserInfo/modifyUserInfo",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
-  "navigationBarTitleText": "添加照片"
+  "navigationBarTitleText": "添加照片",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

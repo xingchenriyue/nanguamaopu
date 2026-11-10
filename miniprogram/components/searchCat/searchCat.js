@@ -1,3 +1,4 @@
+const apiDb = require('../../utils/api.js').db;
 // components/searchCat/searchCat.js
 import { getAvatar } from "../../utils/cat";
 import { regReplace } from "../../utils/utils";
@@ -76,7 +77,7 @@ Component({
 
       // 准备搜索
       var query = filters.length ? {"$and" : (filters)} : {};
-      const { result: cats } = await app.mpServerless.db.collection('cat').find({ ...query, deleted: { $ne: 1 } });
+      const { result: cats } = await apiDb.collection('cat').find({ ...query, deleted: { $ne: 1 } });
       // 批量获取头像
       const ids = cats.map(cat => cat._id);
       const avatars = await getAvatar(ids);

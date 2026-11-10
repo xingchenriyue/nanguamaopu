@@ -1,23 +1,37 @@
-<!-- 频道切换 -->
-<view class="thread-list" style="height: {{heights.threads}}px;">
+<!--
+  顶部毛玻璃导航栏（LOGO + 标题 + 副标题）
+  holder="{{false}}"：不占位 —— 让下方 swiper 的视口顶边落在屏幕 0，
+  这样榜单内容滚动时能从毛玻璃顶栏与频道切换行「下方穿过」，backdrop-filter 背后才有内容可模糊。
+-->
+<glass-nav title="榜单" subtitle="看看谁是校园里的顶流" holder="{{false}}"></glass-nav>
+
+<!-- 频道切换：固定在毛玻璃顶栏正下方，本身也是毛玻璃，榜单内容从其下掠过 -->
+<view class="thread-list" style="height: {{heights.threads}}px; top: {{navTotalHeight}}px;">
   <view class='thread-item {{threadsActive == index? "active": ""}}' bindtap='fClickThread' data-index='{{index}}' wx:for="{{threads}}" wx:key="*this">
     <view class="thread-item-name">{{item}}</view>
     <view class="thread-item-bar"></view>
   </view>
 </view>
 
-<swiper current="{{threadsActive}}" indicator-dots="{{false}}" bindchange="onSwiperChange" style="height: {{heights.windowHeight - heights.threads - tabBarHeight}}px;">
-  <!-- 徽章收集榜 -->
+<swiper class="rank-swiper" current="{{threadsActive}}" indicator-dots="{{false}}" bindchange="onSwiperChange" style="height: {{screenHeight}}px;">
+  <!-- 徽章榜 -->
   <swiper-item>
     <scroll-view scroll-y="1" style="height: 100%;">
+      <!-- 顶部留白：让开毛玻璃顶栏 + 频道切换行 -->
+      <view style="height: {{navTotalHeight + heights.threads}}px;"></view>
       <badgeRank id="badge-rank"></badgeRank>
+      <!-- 底部悬浮 dock 占位 -->
+      <view style="height: {{tabBarHeight}}px;"></view>
     </scroll-view>
-  </swiper-item><!-- 徽章收集榜 end -->
+  </swiper-item><!-- 徽章榜 end -->
 
   <!-- 照片点赞榜 -->
   <swiper-item>
     <!-- 照片的滑动框 -->
     <scroll-view scroll-y="1" style="height: 100%;" bindscrolltolower="onReachBottom">
+      <!-- 顶部留白：让开毛玻璃顶栏 + 频道切换行 -->
+      <view style="height: {{navTotalHeight + heights.threads}}px;"></view>
+
       <!-- 外显筛选 -->
       <view class="h-filter-list" wx:if="{{filters.length > 1}}">
         <view class='h-filter-item long {{item.active? "active": ""}}' bindtap='fClickTime' data-index='{{index}}' wx:for="{{filters}}" wx:key="name">
@@ -44,7 +58,6 @@
                   <view class="photo-date ellipsis-text">{{filters[2].active || filters[3].active ? pics.mdate_str : pics.simplify_date}}</view>
                 </view>
 
-
               </view>
               <view class="like-button" bindtap="clickLike" data-col="{{col}}" data-i="{{index}}">
                 <heart size="80" liked="{{pics.liked}}"></heart>
@@ -64,24 +77,32 @@
       <view class="hide">
         <image wx:for="{{tempPics}}" wx:key="null" src="{{item.pic}}" bindload="loadPic" binderror="loadPicError" data-index="{{index}}" />
       </view>
+
+      <!-- 底部悬浮 dock 占位 -->
+      <view style="height: {{tabBarHeight}}px;"></view>
     </scroll-view>
   </swiper-item> <!-- 照片点赞榜 end -->
 
   <!-- 拍照月榜 -->
   <swiper-item>
     <scroll-view scroll-y="1" style="height: 100%;">
+      <!-- 顶部留白：让开毛玻璃顶栏 + 频道切换行 -->
+      <view style="height: {{navTotalHeight + heights.threads}}px;"></view>
       <photoRank id="photo-rank"></photoRank>
+      <!-- 底部悬浮 dock 占位 -->
+      <view style="height: {{tabBarHeight}}px;"></view>
     </scroll-view>
   </swiper-item><!-- 拍照月榜 end -->
 
   <!-- 成就榜 -->
   <swiper-item>
     <scroll-view scroll-y="1" style="height: 100%;">
+      <!-- 顶部留白：让开毛玻璃顶栏 + 频道切换行 -->
+      <view style="height: {{navTotalHeight + heights.threads}}px;"></view>
       <achievementRank id="achievement-rank"></achievementRank>
+      <!-- 底部悬浮 dock 占位 -->
+      <view style="height: {{tabBarHeight}}px;"></view>
     </scroll-view>
   </swiper-item><!-- 成就榜 end -->
 
 </swiper>
-
-<!-- 底tab占位 -->
-<view style="height: {{tabBarHeight}}px;"></view>

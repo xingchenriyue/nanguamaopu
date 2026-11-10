@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import { checkAuth } from "../../../utils/user";
 import { signCosUrl } from "../../../utils/common";
 const app = getApp();
@@ -21,15 +22,15 @@ Page({
   },
 
   async loadBadgeDefs() {
-    const { result: badgeDefCount } = await app.mpServerless.db.collection('badge_def').count({});
+    const { result: badgeDefCount } = await apiDb.collection('badge_def').count({});
     let badgeDefs = [];
     while (badgeDefs.length < badgeDefCount) {
-      const { result: tmp } = await app.mpServerless.db.collection('badge_def').find({}, { skip: badgeDefs.length });
+      const { result: tmp } = await apiDb.collection('badge_def').find({}, { skip: badgeDefs.length });
       badgeDefs = badgeDefs.concat(tmp);
     }
 
     // 获取现存数量
-    const countPromises = badgeDefs.map(b => app.mpServerless.db.collection('badge').count({ badgeDef: b._id }));
+    const countPromises = badgeDefs.map(b => apiDb.collection('badge').count({ badgeDef: b._id }));
     const countResList = await Promise.all(countPromises);
     const badgeCount = countResList.map(r => r.result);
 

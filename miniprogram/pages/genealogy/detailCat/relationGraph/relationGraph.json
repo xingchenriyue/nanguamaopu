@@ -1,6 +1,9 @@
 {
   "usingComponents": {
-    "popup": "/components/popup/popup"
+    "popup": "/components/popup/popup",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
-  "navigationBarTitleText": "关系图谱"
+  "navigationBarTitleText": "关系图谱",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

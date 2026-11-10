@@ -1,6 +1,25 @@
 <!--pages/followFeed/followFeed.wxml-->
 
+<!--
+  顶部毛玻璃导航栏（LOGO + 标题 + 副标题）
+  holder="{{false}}"：不占位 —— 让下方 scroll-view 的视口顶边落在屏幕 0，
+  这样动态内容滚动时能从毛玻璃顶栏「下方穿过」，backdrop-filter 背后才有内容可模糊。
+-->
+<glass-nav title="喵友圈" subtitle="关注猫猫的最新动态" holder="{{false}}"></glass-nav>
+
+<!--
+  高度用 CSS 的 100%（= page 全屏高，custom 导航下即整个屏幕），
+  不用 inline screenHeight —— 因为 enable-flex="1" 需要容器高度由 flex 上下文决定，
+  写死高度会让 flex 子项被压缩、滚动区与视口错位。
+-->
 <scroll-view id="comment-list" scroll-y="true" bindscrolltolower='loadMoreFeed' enable-back-to-top="true" enable-flex="1" refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh">
+
+  <!--
+    顶部留白：让开毛玻璃顶栏。滚动后内容会从顶栏下方掠过，产生真实毛玻璃。
+    必须 flex-shrink:0 —— #comment-list 是 flex 列容器，
+    否则这个留白会被 flex 压缩，导致滚动区与视口错位、滑不回顶部。
+  -->
+  <view class="feed-top-spacer" style='height: {{navTotalHeight}}px;'></view>
 
   <scroll-view scroll-x="true" enable-flex="true" show-scrollbar="false" enhanced="true" class="story-bar" wx:if="{{followCats && followCats.length > 0}}">
     <view class="story-container">
@@ -52,8 +71,10 @@
             bind:tap="clickPhoto">
             <image src="{{item.pic}}" mode='aspectFill' lazy-load="true" loading="eager" webp="true"></image>
             <!-- 单张照片的点赞按钮（右下角） -->
-            <view class="photo-like {{item.liked ? 'liked' : ''}}" catchtap="likeFeedItem" data-feed-index="{{outerIndex}}" data-item-id="{{item._id}}" data-item-type="photo">
-              <text class="iconfont {{item.liked ? 'icon-heart-filled' : 'icon-heart'}}"></text>
+            <view class="photo-like" catchtap="likeFeedItem" data-feed-index="{{outerIndex}}" data-item-id="{{item._id}}" data-item-type="photo">
+              <view class="feed-heart-viewport">
+                <view class="feed-heart-sprite"><heart size="80" liked="{{item.liked}}"></heart></view>
+              </view>
               <text class="photo-like-num" wx:if="{{item.like_count > 0}}">{{item.like_count}}</text>
             </view>
           </view>
@@ -62,7 +83,7 @@
         <view class="user-info">
           <view class="user-avatar">
             <image wx:if="{{feedItem.items[0].userInfo}}" src="{{feedItem.items[0].userInfo.avatarUrl}}" mode="aspectFit" lazy-load="true"></image>
-            <image wx:else class="avatar" src="/pages/public/images/app_logo.png" mode="aspectFit" lazy-load="true"></image>
+            <image wx:else class="avatar" src="{{logoPath}}" mode="aspectFit" lazy-load="true"></image>
           </view>
           <view class="username">{{feedItem.items[0].userInfo ? feedItem.items[0].userInfo.nickName : '-'}}</view>
         </view>
@@ -93,7 +114,7 @@
         <view class="user-info">
           <view class="user-avatar">
             <image wx:if="{{ item.userInfo}}" class="avatar" src="{{item.userInfo.avatarUrl}}" mode='aspectFit' lazy-load="true"></image>
-            <image wx:else class="avatar" src="/pages/public/images/app_logo.png" mode='aspectFit' lazy-load="true"></image>
+            <image wx:else class="avatar" src="{{logoPath}}" mode='aspectFit' lazy-load="true"></image>
           </view>
           <view class="username">
             {{item.userInfo.nickName || '-'}}
@@ -105,8 +126,10 @@
 
         <view class="comment-footer">
           <view class="datetime">{{item.datetime}}</view>
-          <view class="interact-btn small {{item.liked ? 'liked' : ''}}" catchtap="likeFeedItem" data-feed-index="{{outerIndex}}" data-item-id="{{item._id}}" data-item-type="comment">
-            <text class="iconfont {{item.liked ? 'icon-heart-filled' : 'icon-heart'}}"></text>
+          <view class="interact-btn like-btn small" catchtap="likeFeedItem" data-feed-index="{{outerIndex}}" data-item-id="{{item._id}}" data-item-type="comment">
+            <view class="feed-heart-viewport">
+              <view class="feed-heart-sprite"><heart size="80" liked="{{item.liked}}"></heart></view>
+            </view>
             <text class="interact-num">{{item.like_count || ''}}</text>
           </view>
         </view>
@@ -147,7 +170,8 @@
     <image src='/pages/public/images/system/loading.gif'></image>
   </view>
 
-  
+  <!-- 底部悬浮 dock 占位 -->
+  <view style="height: {{tabBarHeight}}px;"></view>
 </scroll-view>
 
 <popup show="{{showMenu}}" bind:close="closeMenu">

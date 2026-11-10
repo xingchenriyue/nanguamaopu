@@ -1,6 +1,11 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="人员管理" back="{{true}}" holder="{{false}}"></glass-nav>
+  <!-- 顶部留白：让开毛玻璃顶栏，滚动时内容从其下方穿过 -->
+  <view style="height: {{navTotalHeight}}px;"></view>
 <block wx:if="{{auth}}">
   <!-- Tab 切换 -->
-  <view class="tab-bar">
+  <view class="tab-bar" style="--nav-h: {{navTotalHeight}}px;">
     <view class="tab-item {{currentTab === 'users' ? 'active' : ''}}" data-tab="users" bindtap="switchTab">
       用户管理
     </view>
@@ -70,7 +75,11 @@
           <view class="operation-row operation-row-bottom">
             <view class="map-toggle">
               <text class="toggle-label">喵地图</text>
-              <switch checked="{{item.mapAccess && item.mapAccess.status === 'approved'}}" data-index="{{index}}" bindchange="toggleMapAccess" color="#ffd101" />
+              <switch checked="{{item.mapAccess && item.mapAccess.status === 'approved'}}" data-index="{{index}}" bindchange="toggleMapAccess" color="#406090" />
+            </view>
+            <view class="map-toggle ad-exempt-entry" data-index="{{index}}" bindtap="setAdExempt">
+              <text class="toggle-label">免广告</text>
+              <text class="ad-exempt-state">{{item.userInfo.adExemptUntil === 0 ? '永久' : (item.userInfo.adExemptUntil > 0 ? '限期' : '无')}}</text>
             </view>
             <button form-type="submit" class="manager-update primary">更新</button>
             <view class="index">#{{index}}</view>

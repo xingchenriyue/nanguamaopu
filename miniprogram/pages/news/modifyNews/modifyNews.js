@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import {
   getPageUserInfo,
   checkAuth
@@ -70,7 +71,7 @@ Page({
 
   async loadNews() {
     const that = this;
-    const { result } = await app.mpServerless.db.collection('news').findOne({
+    const { result } = await apiDb.collection('news').findOne({
       _id: this.data.news_id
     })
     console.log("[loadNews] - NewsDetail:", result);

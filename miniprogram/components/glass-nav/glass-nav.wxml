@@ -1,0 +1,36 @@
+<!--components/glass-nav/glass-nav.wxml-->
+<!-- 顶部毛玻璃导航栏：整块顶部区域都是毛玻璃，LOGO + 标题 + 副标题融在其中 -->
+
+<!--
+  浮层：整块顶部毛玻璃区域（fixed，盖在内容之上）。
+  内容从它下方滚过时会透出真实的背景模糊。
+-->
+<view class="glass-nav-layer" style="height: {{navBandHeight}}px;">
+  <!-- 导航行：与微信右上角胶囊按钮同一水平线 -->
+  <view class="glass-nav-row {{back ? 'glass-nav-row--back' : ''}}" style="top: {{navRowTop}}px; height: {{navRowHeight}}px; padding-right: {{rightInset}}px;">
+    <!-- 子页面模式：左侧返回箭头（替代 LOGO），标题居中 -->
+    <block wx:if="{{back}}">
+      <view class="glass-nav-back" bindtap="onBackTap" hover-class="glass-nav-back--hover">
+        <view class="glass-nav-back-arrow"></view>
+      </view>
+      <text class="glass-nav-title" wx:if="{{showTitle}}">{{title}}</text>
+    </block>
+
+    <!-- tab 页模式：LOGO + 标题 + 副标题 -->
+    <block wx:else>
+      <image class="glass-nav-logo" wx:if="{{showLogo}}" src="{{logo}}" mode="aspectFit" bindtap="onLogoTap"></image>
+      <!-- 无 LOGO 时（如关于页）标题居中，避免左对齐显得孤立 -->
+      <view class="glass-nav-text {{showLogo ? '' : 'glass-nav-text--center'}}">
+        <text class="glass-nav-title" wx:if="{{showTitle}}">{{title}}</text>
+        <text class="glass-nav-subtitle" wx:if="{{showSubtitle}}">{{subtitle}}</text>
+      </view>
+    </block>
+  </view>
+</view>
+
+<!--
+  占位块：把正文起点下推到玻璃下方，保证正文高度与改造前一致（不被顶栏挤压）。
+  holder=false 时不占位，用于「内容需要从导航栏下方滚过」的页面
+  （滚动内容穿过毛玻璃，产生真正的背景模糊）。
+-->
+<view class="glass-nav-holder" wx:if="{{holder}}" style="height: {{navTotalHeight}}px;"></view>

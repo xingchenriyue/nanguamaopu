@@ -53,18 +53,21 @@ Page({
     showOperationTip: true 
   },
 
-  jsData: {
-    cat_id: "",
-    centerCat: null,
-    firstLevelCats: [],
-    firstLevelRelationsRaw: [],
-    childrenRelMap: {},     // { parentId: [relations] }
-    childrenCache: {},      // { parentId: [{id,name,avatar,relation}] }
-    dragStart: { x: 0, y: 0 },
-    dragBoardStart: { x: 0, y: 0 }
-  },
-
   async onLoad(options) {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      cat_id: "",
+      centerCat: null,
+      firstLevelCats: [],
+      firstLevelRelationsRaw: [],
+      childrenRelMap: {},     // { parentId: [relations] }
+      childrenCache: {},      // { parentId: [{id,name,avatar,relation}] }
+      dragStart: { x: 0, y: 0 },
+      dragBoardStart: { x: 0, y: 0 }
+    };
+
     this.jsData.cat_id = options?.cat_id || "";
     await new Promise((resolve) => {
       wx.getSystemInfo({

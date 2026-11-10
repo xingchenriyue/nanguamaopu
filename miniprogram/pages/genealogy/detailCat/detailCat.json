@@ -3,8 +3,11 @@
     "mp-gallery": "/packages/weui/gallery/gallery",
     "badgeModal": "/components/badgeModal/badgeModal",
     "popup": "/components/popup/popup",
-    "poster": "/components/poster/poster"
+    "poster": "/components/poster/poster",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
   "navigationBarTitleText": "猫猫详情",
-  "disableScroll": true
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

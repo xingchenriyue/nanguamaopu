@@ -1,3 +1,11 @@
+/**
+ * utils/utils.js —— 通用纯函数工具（随机、UUID、时间、分享、字符串等）
+ * ============================================================================
+ * 【职责】通用纯函数工具（随机、UUID、时间、分享、字符串等）。
+ * 【依赖】无（不 import 运行时模块，避免循环引用）
+ * 【注意事项】本文件被多个模块依赖，禁止在此引入 api/config 等运行时模块。
+ * ============================================================================
+ */
 import { hex_sha256 } from "../packages/sha256/sha256";
 
 function randomInt(min, max) {
@@ -145,8 +153,13 @@ function splitFilterLine(line) {
 
 
 function checkMultiClick(cat_id) {
+  // 先判 cat_id 再读缓存：cat_id 为空时 getStorageSync 会拿到空串
+  if (!cat_id) {
+    return false;
+  }
   const last_click = wx.getStorageSync(cat_id);
-  if(!cat_id) {
+  // 没有点击记录时缓存是空串，直接算时间差会得到 NaN
+  if (!last_click) {
     return false;
   }
   const deltaHours = getDeltaHours(last_click);

@@ -200,7 +200,7 @@
   background-color: var(--color-gray-light);
 }
 
-input, textarea {
+.v-input, .v-textarea {
   width: 100%;
   border: 1rpx solid #eee;
   border-radius: 10rpx;
@@ -212,12 +212,12 @@ input, textarea {
 }
 
 /* 普通输入框 */
-input {
+.v-input {
   height: 80rpx;
 }
 
 /* 文本区域 */
-textarea {
+.v-textarea {
   min-height: 150rpx;
 }
 
@@ -238,7 +238,7 @@ textarea {
   flex-shrink: 0;
 }
 
-button::after {
+.cancel-btn::after, .submit-btn::after, .add-type-btn::after {
   border: none;
 }
 
@@ -270,7 +270,7 @@ button::after {
   padding-bottom: 20rpx;
 }
 
-.type-add-form input {
+.type-add-form .v-input {
   flex: 1;
   height: 80rpx;
   background-color: var(--color-gray-light);

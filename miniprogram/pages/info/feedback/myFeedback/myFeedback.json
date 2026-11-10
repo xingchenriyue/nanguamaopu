@@ -1,4 +1,8 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "我的反馈"
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationBarTitleText": "我的反馈",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

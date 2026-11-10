@@ -1,3 +1,4 @@
+const apiDb = require('../../../../../../utils/api.js').db;
 import {
   getUser
 } from "../../../../../../utils/user";
@@ -24,12 +25,15 @@ Page({
     avatarMap: {},
   },
 
-  jsData: {},
-
   /**
    * 生命周期函数--监听页面加载
    */
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {};
+
     await this.loadUser();
 
     const [_, badgeDefMap] = await Promise.all([
@@ -58,7 +62,7 @@ Page({
     }
     this.jsData.loading = true;
     let {badges} = this.data;
-    let { result: tmp } = await app.mpServerless.db.collection('badge').find({
+    let { result: tmp } = await apiDb.collection('badge').find({
       _openid: this.data.user.openid,
       catId: { $ne: null }
     }, { skip: badges.length, limit: 20 })

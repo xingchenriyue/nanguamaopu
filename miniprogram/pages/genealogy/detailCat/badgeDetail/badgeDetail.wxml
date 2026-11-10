@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题），标题随猫咪名动态变化 -->
+<glass-nav title="{{navTitle}}" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/genealogy/detailCat/badgeDetail/badgeDetail.wxml-->
 <view class="bd-block">
   <view class="bd-title">徽章排名</view>

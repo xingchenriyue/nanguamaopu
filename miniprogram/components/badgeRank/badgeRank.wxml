@@ -10,7 +10,7 @@
 </view>
 
 <view class='loading' wx:if='{{loading}}'>
-  <image src='/pages/public/images/system/loading.gif'></image>
+  <image class='loading-img' src='/pages/public/images/system/loading.gif'></image>
 </view>
 
 <view class="badge-block" wx:for="{{dispOrder}}" wx:key="this" wx:for-item="rankKey" wx:if="{{ dispContent[rankKey].items }}">

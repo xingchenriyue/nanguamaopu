@@ -1,5 +1,7 @@
 /* miniprogram/pages/manage/managers.wxss */
 page {
+  /* 毛玻璃顶栏高度（由页面注入 navTotalHeight），sticky 元素据此下移 */
+  --nav-h: 0px;
   width: 750rpx;
 }
 
@@ -30,7 +32,8 @@ button.long {
   background: #fff;
   border-bottom: 1rpx solid var(--color-gray);
   position: sticky;
-  top: 0;
+  /* 吸顶位置避开毛玻璃顶栏（--nav-h 由页面注入 navTotalHeight） */
+  top: var(--nav-h, 0px);
   z-index: 10;
 }
 

@@ -1,3 +1,4 @@
+const apiDb = require('../../../../utils/api.js').db;
 import { convertRatingList, genDefaultRating } from "../../../../utils/rating";
 import api from "../../../../utils/cloudApi";
 
@@ -13,14 +14,17 @@ Page({
     myRatings: genDefaultRating(),
   },
 
-  jsData: {
-    submitting: false,
-  },
-
   /**
    * 生命周期函数--监听页面加载
    */
   async onLoad(options) {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      submitting: false,
+    };
+
     this.setData({
       cat_id: options.cat_id,
       user: wx.getStorageSync('current-user').item
@@ -57,7 +61,7 @@ Page({
       console.log(this.data);
       return
     }
-    const { result: myRatingsItems } = await app.mpServerless.db.collection('rating').findOne({ _openid: this.data.user.openid, cat_id: this.data.cat_id })
+    const { result: myRatingsItems } = await apiDb.collection('rating').findOne({ _openid: this.data.user.openid, cat_id: this.data.cat_id })
 
     console.log(myRatingsItems);
 
@@ -78,7 +82,7 @@ Page({
   // 重新加载猫猫信息
   async reloadCatRating() {
     let { cat_id } = this.data;
-    let { result: cat } = await app.mpServerless.db.collection('cat').findOne({ _id: cat_id })
+    let { result: cat } = await apiDb.collection('cat').findOne({ _id: cat_id })
 
     console.log(cat);
 

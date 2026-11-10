@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 // pages/tools/updateUserRole/updateUserRole.js
 import api from "../../../utils/cloudApi";
 const app = getApp();
@@ -60,7 +61,7 @@ Page({
   },
 
   async updateUserRole() {
-    var { result: total } = await app.mpServerless.db.collection('photo').aggregate([
+    var { result: total } = await apiDb.collection('photo').aggregate([
       {
         $group: {
           _id: '$_openid',
@@ -75,7 +76,7 @@ Page({
     })
     var count = 0;
     while (1) {
-      const { result: users } = await app.mpServerless.db.collection('photo').aggregate([
+      const { result: users } = await apiDb.collection('photo').aggregate([
         {
           $group: {
             _id: '$_openid',

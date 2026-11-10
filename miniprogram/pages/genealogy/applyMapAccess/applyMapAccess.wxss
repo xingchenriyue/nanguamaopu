@@ -25,7 +25,7 @@ page {
 }
 
 .status-card.pending {
-  background: #fff8e1;
+  background: #E8EFF7;
   border: 2rpx solid var(--color-primary);
 }
 

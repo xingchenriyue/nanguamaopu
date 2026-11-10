@@ -32,6 +32,8 @@ Page({
   data: {
     cat: {},
     existing: null,
+    // 顶栏标题：自定义导航栏下 setNavigationBarTitle 失效，改由 data 驱动
+    navTitle: '申请领养',
     form: {
       applicant_name: '',
       contact: '',
@@ -40,11 +42,14 @@ Page({
     submitting: false,
   },
 
-  jsData: {
-    cat_id: '',
-  },
-
   async onLoad(options) {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      cat_id: '',
+    };
+
     this.jsData.cat_id = options.cat_id;
     if (!this.jsData.cat_id) {
       wx.showToast({ title: '缺少猫咪信息', icon: 'none' });
@@ -75,6 +80,8 @@ Page({
     this.setData({
       cat,
       avatarUrl: avatar ? (avatar.photo_compressed || avatar.photo_id) : '',
+      // 自定义导航栏下没有原生标题栏，改用 data 驱动顶栏标题
+      navTitle: `领养${cat.name}`,
     });
     wx.setNavigationBarTitle({ title: `领养${cat.name}` });
 

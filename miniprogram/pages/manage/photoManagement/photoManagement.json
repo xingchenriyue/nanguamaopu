@@ -1,6 +1,10 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
   "navigationBarTitleText": "图片管理",
-  "backgroundColor": "#F7F7FA",
-  "enablePullDownRefresh": true
+  "backgroundColor": "#f7f7f7",
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

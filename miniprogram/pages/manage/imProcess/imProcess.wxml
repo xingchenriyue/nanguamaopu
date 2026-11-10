@@ -1,33 +1,15 @@
-<canvas style="width: 1200px; height: 1200px; left: 1000px; position: fixed;" id="bigPhoto" type="2d"></canvas>
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="处理流程" back="{{true}}" holder="{{true}}"></glass-nav>
 <block wx:if="{{auth}}">
-  <!-- 原图预览区域 -->
-  <view class="image-blocks">
-    <view class="image-block">
-      <view class='title'>原图</view>
-      <image mode='aspectFit' wx:if='{{origin.path}}' src='{{origin.path}}' bindtap='preview' data-src='{{origin.path}}'></image>
-      <view wx:else class="no-image"></view>
-    </view>
-    <view class="image-block">
-      <view class='title'>缩略图</view>
-      <image mode='aspectFit' wx:if='{{images_path.compressed}}' src='{{images_path.compressed}}' bindtap='preview' data-src='{{images_path.compressed}}'></image>
-      <view wx:else class="no-image"></view>
-    </view>
-    <view class="image-block">
-      <view class='title'>水印图</view>
-      <image mode='aspectFit' wx:if='{{images_path.watermark}}' src='{{images_path.watermark}}' bindtap='preview' data-src='{{images_path.watermark}}'></image>
-      <view wx:else class="no-image"></view>
-    </view>
-  </view>
-  
   <!-- 处理状态信息 -->
   <view class="status-info">
     <view>[{{now}}/{{total}}] 目前阶段：{{phase}} | {{phase2str[phase]}}</view>
     <view>选中照片: {{selectedCount}}/{{photoList.length}}</view>
   </view>
-  
+
   <!-- 操作按钮 -->
   <view class="buttons">
-    <button class='short' bindtap='clickProcessBtn' data-test="{{true}}">{{processing ? "停止" : "试运行"}}</button>
     <button class='primary' bindtap='clickProcessBtn'>{{processing ? "停止" : "开始处理"}}</button>
   </view>
   

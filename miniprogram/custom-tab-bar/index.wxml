@@ -1,9 +1,15 @@
 <!--miniprogram/custom-tab-bar/index.wxml-->
+<!-- 底部悬浮 dock：毛玻璃胶囊，图标在上文字在下，选中项带白色高亮气泡 -->
 
-<view class="tab-bar {{showTabBar ? '' : 'hidden'}}">
-  <view class="tab-bar-border"></view>
-  <view wx:for="{{list}}" wx:key="index" class="tab-bar-item" data-path="{{item.pagePath}}" bindtap="switchTab">
-    <image class="tab-bar-img" src="{{activePath === item.pagePath ? item.selectedIconPath : item.iconPath}}"></image>
-    <view class="tab-bar-title" style="color: {{activePath === item.pagePath ? selectedColor : color}}">{{item.text}}</view>
+<view class="tab-bar {{showTabBar ? '' : 'hidden'}}" style="padding-bottom: {{bottomOffset}}px;">
+  <view class="tab-bar-panel">
+    <view class="tab-bar-item {{activePath === item.pagePath ? 'active' : ''}}"
+          wx:for="{{list}}" wx:key="index"
+          data-path="{{item.pagePath}}" bindtap="switchTab" hover-class="tab-bar-item-hover">
+      <view class="tab-bar-icon-wrap">
+        <image class="tab-bar-img" src="{{item.iconPath}}" mode="aspectFit"></image>
+      </view>
+      <view class="tab-bar-title">{{item.text}}</view>
+    </view>
   </view>
 </view>

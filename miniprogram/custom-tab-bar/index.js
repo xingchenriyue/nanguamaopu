@@ -1,6 +1,7 @@
 import { getGlobalSettings, getCurrentPath } from "../utils/page";
 import { sleep } from "../utils/utils";
 import { checkCanFullTabBar, checkCanUseMap } from "../utils/user";
+import { getDockBottomOffset, getDockReserveHeight } from "../utils/layout";
 import tab from "./tab";
 
 function getTabBarList() {
@@ -24,7 +25,9 @@ function isTabPath(path) {
 Component({
   data: {
     list: getTabBarList(),
-    activePath: null
+    activePath: null,
+    // dock 与屏幕底部的间距（px）：安全区 + 悬空间距，由 JS 计算注入
+    bottomOffset: 0
   },
   async created() {
     const currentPath = getCurrentPath();
@@ -80,10 +83,21 @@ Component({
     });
   },
   attached() {
+    // dock 与屏幕底部的间距（安全区 + 悬空间距），由 JS 计算而非 env()，
+    // 保证不同机型上「实测高度」与 layout.js 的推导值一致
+    this.setData({ bottomOffset: getDockBottomOffset() });
+
+    // 实测整个 dock 容器的高度（面板高度 + 底部悬空间距 + 安全区），
+    // 写入 storage 供各页面做底部占位，避免内容被悬浮 dock 遮住。
     var obj = this.createSelectorQuery();
     obj.select('.tab-bar').boundingClientRect(function (rect) {
+      if (!rect || !rect.height) {
+        console.log('获取tabBar高度失败，使用兜底值');
+        wx.setStorageSync('tabBarHeight', getDockReserveHeight(0));
+        return;
+      }
       console.log('获取tabBar元素的高度', rect.height);
-      wx.setStorageSync('tabBarHeight', rect.height)     // 将获取到的高度设置缓存，以便之后使用
+      wx.setStorageSync('tabBarHeight', rect.height);   // 将获取到的高度设置缓存，以便之后使用
     }).exec();
   },
   methods: {
@@ -94,7 +108,7 @@ Component({
       }
 
       // 喵地图权限检查
-      if (path === 'pages/map/index/index') {
+      if (path === 'pages/map/map') {
         const canUse = await checkCanUseMap();
         if (!canUse) {
           wx.showModal({

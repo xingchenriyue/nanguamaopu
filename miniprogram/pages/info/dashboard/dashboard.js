@@ -1,6 +1,7 @@
 import { getCatStats } from "../../../utils/cloudApi";
 import { text as text_cfg } from "../../../config";
 import { formatDate } from "../../../utils/utils";
+import { initLayout } from "../../../utils/page";
 
 // 保存统计数据到本地缓存
 function saveCatStatsCache(stats) {
@@ -11,10 +12,11 @@ function saveCatStatsCache(stats) {
   wx.setStorageSync('catStatsCache', cacheData);
 }
 
-// 获取缓存的统计数据（有效期12小时）
+// 获取缓存的统计数据（有效期 30 分钟）
+// 之前是 12 小时，榜单/看板数据新鲜度不够，用户下拉刷新前一直看到半天前的快照
 function getCachedCatStats() {
   const cache = wx.getStorageSync('catStatsCache');
-  if (cache && (Date.now() - cache.timestamp < 12 * 60 * 60 * 1000)) {
+  if (cache && (Date.now() - cache.timestamp < 30 * 60 * 1000)) {
     return cache.data;
   }
   return null;
@@ -39,6 +41,8 @@ function processEvents(stats) {
 
 Page({
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
     stats: {},
     loading: true,
     text_cfg: text_cfg,
@@ -52,6 +56,8 @@ Page({
   },
 
   onLoad: function () {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
     this.loadStats();
   },
 

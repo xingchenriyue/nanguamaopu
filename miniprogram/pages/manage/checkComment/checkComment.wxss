@@ -24,6 +24,6 @@
 
 /* 照片评论标记 */
 .photo-tag {
-  color: var(--color-primary, #ffd101);
+  color: var(--color-primary, #406090);
   font-weight: bold;
 }

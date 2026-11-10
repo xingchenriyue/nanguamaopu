@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="信息反馈" back="{{true}}" holder="{{true}}"></glass-nav>
 <form bindsubmit="bindSubmit" wx:if="{{canFeedback}}">
   <view wx:if="{{!isAuth}}" class='unAuth'>
     <!-- <text>请授权后进行操作</text> -->

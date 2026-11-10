@@ -1,6 +1,11 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="图片管理" back="{{true}}" holder="{{false}}"></glass-nav>
+  <!-- 顶部留白：让开毛玻璃顶栏，滚动时内容从其下方穿过 -->
+  <view style="height: {{navTotalHeight}}px;"></view>
 <wxs module="filter" src="../../../utils/filter.wxs"></wxs>
 
-<view class="container">
+<view class="container" style="--nav-h: {{navTotalHeight}}px;">
   <!-- 权限检查 -->
   <block wx:if="{{!auth}}">
     <view class="loading-container">

@@ -1,5 +1,8 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="我的足迹" back="{{true}}" holder="{{true}}"></glass-nav>
 <!-- 我的足迹 -->
-<view class="page">
+<view class="page" style="--nav-h: {{navTotalHeight}}px;">
   <view class="tabs">
     <view class="tab {{activeTab === item.key ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchTab">{{item.name}}</view>
   </view>

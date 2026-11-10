@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="反馈处理" back="{{true}}" holder="{{true}}"></glass-nav>
 <block wx:if="{{auth}}">
   <view id='tips'><text>目前共有 {{total}} 条反馈{{checkHistory? '已': '待'}}处理，\n点击所属猫猫名字可以跳转到该猫猫详情。\n</text></view>
   <block wx:for="{{feedbacks}}" wx:key="_id">

@@ -1,3 +1,4 @@
+const apiDb = require('../../../../utils/api.js').db;
 import { formatDate } from "../../../../utils/utils";
 import { getUser } from "../../../../utils/user";
 
@@ -14,11 +15,14 @@ Page({
     total: 0,
   },
 
-  jsData: {
-    currentUser: null,
-  },
-
   onLoad: async function () {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      currentUser: null,
+    };
+
     this.jsData.currentUser = await getUser();
     console.log(this.jsData.currentUser);
     if (!this.jsData.currentUser) {
@@ -35,7 +39,7 @@ Page({
       title: '加载中...',
     });
     const that = this;
-    const countRes = await app.mpServerless.db.collection('feedback').count({ _openid: this.jsData.currentUser.openid })
+    const countRes = await apiDb.collection('feedback').count({ _openid: this.jsData.currentUser.openid })
     that.setData({
       total: countRes.result,
     });
@@ -47,12 +51,12 @@ Page({
 
   async loadFeedbacks() {
     const nowLoaded = this.data.feedbacks.length;
-    var { result: feedbacks } = await app.mpServerless.db.collection('feedback').find({ _openid: this.jsData.currentUser.openid }, { sort: { openDate: -1 }, skip: nowLoaded, limit: step })
+    var { result: feedbacks } = await apiDb.collection('feedback').find({ _openid: this.jsData.currentUser.openid }, { sort: { openDate: -1 }, skip: nowLoaded, limit: step })
     console.log(feedbacks);
     // 获取对应猫猫信息；将Date对象转化为字符串；判断是否已回复
     for (let i = 0; i < feedbacks.length; ++i) {
       if (feedbacks[i].cat_id != undefined) {
-        feedbacks[i].cat = (await app.mpServerless.db.collection('cat').findOne({ _id: feedbacks[i].cat_id }, { projection: { name: 1, campus: 1 } })).result;
+        feedbacks[i].cat = (await apiDb.collection('cat').findOne({ _id: feedbacks[i].cat_id }, { projection: { name: 1, campus: 1 } })).result;
       }
       feedbacks[i].openDateStr = formatDate(feedbacks[i].openDate, "yyyy-MM-dd hh:mm:ss");
       feedbacks[i].replied = feedbacks[i].hasOwnProperty('replyDate');

@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import {
   checkAuth,
   fillUserInfo
@@ -25,14 +26,17 @@ Page({
     campus_list: [],
   },
 
-  jsData: {
-    notice_list: [],
-  },
-
   /**
    * 生命周期函数--监听页面加载
    */
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      notice_list: [],
+    };
+
     if (await checkAuth(this, 1)) {
       this.loadComments();
     }
@@ -51,7 +55,7 @@ Page({
   async loadComments() {
     // 常用的对象
     var comments = [];
-    var { result } = await app.mpServerless.db.collection('comment').find({
+    var { result } = await apiDb.collection('comment').find({
       needVerify: { $eq: true },
       deleted: { $ne: true }
     }, {

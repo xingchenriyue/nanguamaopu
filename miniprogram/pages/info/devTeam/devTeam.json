@@ -1,4 +1,8 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "开发团队"
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationBarTitleText": "开发团队",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

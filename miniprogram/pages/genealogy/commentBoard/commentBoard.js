@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import {
   formatDate,
   randomInt
@@ -20,6 +21,7 @@ import {
 } from "../../../utils/msg";
 import { trackComment } from "../../../utils/achievement";
 import api from "../../../utils/cloudApi";
+import { initLayout } from "../../../utils/page";
 const app = getApp();
 Page({
 
@@ -27,6 +29,11 @@ Page({
    * 页面的初始数据
    */
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
+    logoPath: config.LOGO_PATH,
     show_fix_header: false,
     cat: {},
     comments: [],
@@ -40,16 +47,21 @@ Page({
     paper_color_select: 0,
   },
 
-  jsData: {
-    cat_id: null,
-    sendLock: false,
-    fetchedCount: 0,
-  },
-
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      cat_id: null,
+      sendLock: false,
+      fetchedCount: 0,
+    };
+
     this.jsData.cat_id = options.cat_id;
     this.setData({
       canComment: await checkCanComment()
@@ -143,7 +155,7 @@ Page({
   },
 
   async loadCat() {
-    var cat = (await app.mpServerless.db.collection('cat').findOne({ _id: this.jsData.cat_id, deleted: { $ne: 1 } })).result;
+    var cat = (await apiDb.collection('cat').findOne({ _id: this.jsData.cat_id, deleted: { $ne: 1 } })).result;
     console.log(cat);
 
     // 获取头像
@@ -313,7 +325,7 @@ Page({
     };
     // EMAS 客户端查询不认 $exists，照片评论在客户端过滤；
     // 分页偏移用原始拉取数（fetchedCount）对齐，避免漏拉
-    var res = (await app.mpServerless.db.collection('comment').find(qf, { skip: this.jsData.fetchedCount, sort: { create_date: -1 }, limit: 10 })).result;
+    var res = (await apiDb.collection('comment').find(qf, { skip: this.jsData.fetchedCount, sort: { create_date: -1 }, limit: 10 })).result;
     this.jsData.fetchedCount += res.length;
     console.log(res);
     if (res.length === 0) {
@@ -373,10 +385,10 @@ Page({
   },
 
   async ifSendNotifyVeriftMsg() {
-    const subMsgSetting = (await app.mpServerless.db.collection('setting').findOne({ _id: 'subscribeMsg' })).result;
+    const subMsgSetting = (await apiDb.collection('setting').findOne({ _id: 'subscribeMsg' })).result;
     const triggerNum = subMsgSetting.verifyPhoto.triggerNum;  //几条未审核才触发
     // console.log("triggerN",triggerNum);
-    var numUnchkPhotos = (await app.mpServerless.db.collection('comment').count({
+    var numUnchkPhotos = (await apiDb.collection('comment').count({
       needVerify: true
     })).result;
 

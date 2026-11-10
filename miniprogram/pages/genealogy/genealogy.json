@@ -1,6 +1,9 @@
 {
   "usingComponents": {
-    "newsModal": "/components/newsModal/newsModal"
+    "newsModal": "/components/newsModal/newsModal",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
   "disableScroll": true
 }

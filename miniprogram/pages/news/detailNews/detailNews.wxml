@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="公告详情" back="{{true}}" holder="{{false}}"></glass-nav>
 <!--pages/news/detailNews/detailNews.wxml-->
 
 <view class='loading' wx:if='{{updateRequest}}'>
@@ -5,7 +8,18 @@
 </view>
 
 
-<scroll-view enable-flex='true' class='cards' style='height: {{heights.windowHeight - heights.filters}}px;' scroll-y='true' enable-back-to-top='true' bindscrolltolower='onRefresh' bindscroll='fScroll' lower-threshold='50'>
+<!--
+  高度用 CSS 的 100%（= page 全屏高，custom 导航下即整个屏幕），
+  不用 inline screenHeight —— 因为 enable-flex="true" 需要容器高度由 flex 上下文决定，
+  写死高度会让 flex 子项被压缩、滚动区与视口错位。
+-->
+<scroll-view enable-flex='true' class='cards' scroll-y='true' enable-back-to-top='true' bindscrolltolower='onRefresh' bindscroll='fScroll' lower-threshold='50'>
+  <!--
+    顶部留白：让开毛玻璃顶栏，滚动时内容从其下方穿过。
+    必须 flex-shrink:0 —— .cards 是 enable-flex 的 flex 容器，
+    否则这个留白会被 flex 压缩，导致滚动区与视口错位、滑不回顶部。
+  -->
+  <view class="news-top-spacer" style="height: {{navTotalHeight}}px;"></view>
 
     <view class='news-box' wx:if='{{news != 0}}'>
         <view class='news title'>{{news.title}}</view>

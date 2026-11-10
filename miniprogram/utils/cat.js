@@ -1,8 +1,22 @@
+/**
+ * utils/cat.js —— 猫猫资料、头像、封面/最新照片查询与本地缓存
+ * ============================================================================
+ * 【职责】猫猫资料、头像、封面/最新照片查询与本地缓存。
+ * 【依赖】./api.js（db）、./common.js（signCosUrl）、./cache.js、../config.js
+ * 【注意事项】批量签名照片 URL 时注意签名缓存已短于有效期，勿再长期缓存。
+ * ============================================================================
+ */
+const apiDb = require('./api.js').db;
 // 放置与cat对象有关的函数
 import { randomInt } from "./utils";
 import { signCosUrl } from "./common";
 import { getCacheItem, setCacheItem, getCacheDate, setCacheDate, cacheTime } from "./cache";
 const app = getApp();
+
+// 需要签名的图片 URL 字段。
+// photo_id 是原始图，photo_compressed 是压缩图，photo_watermark 是带水印图，
+// 三者都是私有桶对象，消费方可能取其中任意一个，所以逐个签。
+const SIGN_FIELDS = ['photo_compressed', 'photo_watermark', 'photo_id'];
 
 // 获取猫猫的封面图（支持单猫与多猫）
 async function getAvatar(ids, options) {
@@ -78,7 +92,7 @@ async function getBestPhoto(ids) {
     best: true
   };
 
-  const { result: photos } = await app.mpServerless.db.collection('photo').find(query);
+  const { result: photos } = await apiDb.collection('photo').find(query);
 
   if (Array.isArray(photos)) {
     // 按 cat_id 对照片进行分组
@@ -118,7 +132,7 @@ async function getLatestPhoto(ids) {
     verified: true
   };
 
-  const { result: photos } = await app.mpServerless.db.collection('photo').find(query, { sort: { mdate: -1 } });
+  const { result: photos } = await apiDb.collection('photo').find(query, { sort: { mdate: -1 } });
 
   if (Array.isArray(photos)) {
     for (const p of photos) {
@@ -137,20 +151,36 @@ async function getLatestPhoto(ids) {
 }
 
 // 仅签名头像必要字段
+/**
+ * 给照片对象里的所有图片 URL 字段换成签名 URL。
+ *
+ * 【为什么必须签全部三个字段，不能只签 photo_compressed || photo_id 其一】
+ * 桶 ACL = private，DB 里存的是裸 URL，直接塞进 <image src> 会 403 AccessDenied
+ * （实测 2026-11-09：未签名 GET → 403，服务端签名 GET → 200 + 正确图片）。
+ * 而消费方的取法并不统一，既有「photo_compressed || photo_id」的 fallback，
+ * 也有直接只取 photo_id 的（pages/manage/photoManagement/photoManagement.js:291）。
+ * 早期版本只签其中存在的第一个字段，另一个仍是裸 URL —— 只要那条路径被走到就 403。
+ * 三个字段指向的是同一个 OSS 对象的不同版本，签名互不影响，多签的代价只是
+ * 几次签名请求，且 utils/oss.js 按 key 有缓存。
+ *
+ * @param {object} photo photo 集合记录
+ * @returns {Promise<object>} 签名字段已替换的副本
+ */
 async function signPhotoUrls(photo) {
   if (!photo) return photo;
   try {
     const signedPhoto = { ...photo };
-    const urlToSign = signedPhoto.photo_compressed || signedPhoto.photo_id;
-    if (urlToSign) {
-      const signedUrl = await signCosUrl(urlToSign);
-      if (signedPhoto.photo_compressed) {
-        signedPhoto.photo_compressed = signedUrl;
-      } else {
-        signedPhoto.photo_id = signedUrl;
+    for (const field of SIGN_FIELDS) {
+      const url = signedPhoto[field];
+      if (!url || typeof url !== 'string') continue;
+      try {
+        signedPhoto[field] = await signCosUrl(url);
+      } catch (error) {
+        // 单个字段签名失败不影响其它字段：置空后页面会走 fallback 分支
+        console.error(`签名照片 ${field} 失败:`, error);
+        signedPhoto[field] = '';
       }
     }
-    
     return signedPhoto;
   } catch (error) {
     console.error("签名照片URL失败:", error);
@@ -180,7 +210,7 @@ async function getCatItem(cat_id, options) {
     return cacheItem;
   }
 
-  const { result } = await app.mpServerless.db.collection('cat').findOne({ _id: cat_id, deleted: { $ne: 1 } });
+  const { result } = await apiDb.collection('cat').findOne({ _id: cat_id, deleted: { $ne: 1 } });
   cacheItem = result
   setCacheItem(cacheKey, cacheItem, cacheTime.catItem);
   return cacheItem;
@@ -207,7 +237,7 @@ async function getCatItemMulti(cat_ids, options) {
   if (not_found.length > 0) {
     let db_query = [];
     for (let i = 0; i < not_found.length; i += 100) {
-      const { result: db_res } = await app.mpServerless.db.collection('cat').find({ _id: { $in: not_found }, deleted: { $ne: 1 } }, { skip: i });
+      const { result: db_res } = await apiDb.collection('cat').find({ _id: { $in: not_found }, deleted: { $ne: 1 } }, { skip: i });
       db_query.push(db_res)
     }
 

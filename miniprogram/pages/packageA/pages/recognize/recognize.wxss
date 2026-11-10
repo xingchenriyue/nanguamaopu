@@ -13,7 +13,7 @@
   transform: translateX(-50%);
 }
 
-#photoBox, #resultBox, #adBox {
+#photoBox, #resultBox, #adBox, #recognizeStatus {
   width: 675rpx;
   background-color: white;
   box-shadow: 13rpx 13rpx 30rpx var(--color-gray);
@@ -22,6 +22,22 @@
   overflow: hidden;
   box-sizing: border-box;
   margin-bottom: 50rpx;
+}
+
+#recognizeStatus {
+  padding: 24rpx 32rpx;
+}
+
+.status-title {
+  margin-bottom: 12rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+}
+
+.status-message {
+  font-size: 27rpx;
+  line-height: 1.6;
+  word-break: break-all;
 }
 
 #previewArea {
@@ -315,4 +331,99 @@
   font-size: 24rpx;
   color: var(--color-gray-max);
   text-align: center;
+}
+
+
+/* ===================== 全屏取景（拍照 / 选图前） ===================== */
+/* 之前相机固定 675rpx 正方形居中，真机上看只有很小一块。
+   这里让取景画面铺满整个屏幕，底部控制条悬浮在画面上。 */
+#positionWrapper.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  transform: none;
+  background-color: #000;
+  z-index: 1;
+}
+
+#positionWrapper.fullscreen #photoBox {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: #000;
+}
+
+#positionWrapper.fullscreen #previewArea {
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+}
+
+#positionWrapper.fullscreen #cameraControll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 240rpx;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55));
+  z-index: 5;
+}
+
+#positionWrapper.fullscreen #authTips {
+  top: 50%;
+}
+
+/* ===================== 继续识别按钮 ===================== */
+.again-btn {
+  margin: 36rpx auto 8rpx;
+  width: 320rpx;
+  height: 84rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 42rpx;
+  background-color: var(--color-primary);
+  color: var(--color-text-onPrimary);
+  font-size: 30rpx;
+  box-shadow: 0 6rpx 16rpx var(--color-gray);
+}
+
+.again-btn:active {
+  background-color: var(--color-primary-dark);
+}
+
+.again-icon {
+  margin-right: 10rpx;
+  font-size: 34rpx;
+}
+
+
+/* ===================== 识别次数 / 广告次数展示 ===================== */
+.ad-usage {
+  margin-top: 24rpx;
+  padding: 12rpx 20rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--color-gray-max);
+  background-color: var(--color-gray-light);
+  border-radius: 12rpx;
+  text-align: center;
+}
+
+/* 全屏取景时浮在取景画面底部 */
+.camera-usage {
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(240rpx + env(safe-area-inset-bottom) + 12rpx);
+  margin: 0;
+  color: #fff;
+  background-color: rgba(0, 0, 0, 0.35);
+  z-index: 6;
 }

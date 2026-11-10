@@ -1,7 +1,7 @@
 .page {
   padding: 30rpx;
   min-height: 100vh;
-  background: #f7f7f7;
+  background: #F3F6FA;
   box-sizing: border-box;
 }
 
@@ -64,8 +64,8 @@
   border-radius: 24rpx;
 }
 
-.status-pending { background: #fff7e6; color: #fa8c16; }
-.status-reviewing { background: #e6f7ff; color: #1890ff; }
+.status-pending { background: #E8EFF7; color: #104070; }
+.status-reviewing { background: #e6f7ff; color: #406090; }
 .status-approved { background: #f6ffed; color: #52c41a; }
 .status-rejected { background: #fff1f0; color: #f5222d; }
 .status-cancelled { background: #f5f5f5; color: #999; }
@@ -79,7 +79,7 @@
 .status-note {
   font-size: 26rpx;
   color: #666;
-  background: #f7f7f7;
+  background: #F3F6FA;
   border-radius: 12rpx;
   padding: 16rpx 20rpx;
   margin-top: 12rpx;
@@ -88,7 +88,7 @@
 
 .status-tip {
   font-size: 24rpx;
-  color: var(--color-primary-text, #d46b08);
+  color: var(--color-primary-text, #104070);
   margin-top: 16rpx;
   line-height: 1.6;
 }
@@ -120,14 +120,14 @@
 }
 
 .input {
-  background: #f7f7f7;
+  background: #F3F6FA;
   border-radius: 12rpx;
   padding: 20rpx 24rpx;
   font-size: 28rpx;
 }
 
 .textarea {
-  background: #f7f7f7;
+  background: #F3F6FA;
   border-radius: 12rpx;
   padding: 20rpx 24rpx;
   font-size: 28rpx;

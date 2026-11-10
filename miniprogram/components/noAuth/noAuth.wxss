@@ -24,13 +24,11 @@
   white-space: nowrap;
 }
 
-button {
+/* 组件 wxss 禁用标签选择器：原 `button` 规则并入唯一的按钮类 .no-auth-btn */
+.no-auth-btn {
   width: 45%;
-  display: inline-block;
   font-size: 30rpx;
   box-sizing: border-box;
-}
-.no-auth-btn {
   background-color: var(--color-gray);
   color: white;
   margin-top: 20rpx;

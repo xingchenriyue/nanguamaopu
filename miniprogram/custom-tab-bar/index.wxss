@@ -1,44 +1,89 @@
+/* miniprogram/custom-tab-bar/index.wxss */
+/* 底部悬浮 dock：毛玻璃胶囊，图标在上文字在下，选中项白色气泡高亮 */
+
 .tab-bar {
   position: fixed;
-  bottom: 0;
   left: 0;
   right: 0;
-  height: 96rpx;
-  background: white;
+  bottom: 0;
+  z-index: 100;
   display: flex;
-  padding-bottom: max(16rpx, env(safe-area-inset-bottom));
+  justify-content: center;
+  /* 底部留白由 JS 注入（安全区 + 悬空间距），让 dock「浮」在屏幕上而不是贴边。
+     不用 env()：部分环境不解析该函数，会导致实测高度偏小、底部留白不足。 */
+  padding-bottom: 40rpx;
+  /* 容器本身不拦截点击，只有胶囊内部可点 */
+  pointer-events: none;
 }
 
 .tab-bar.hidden {
   opacity: 0;
 }
 
-.tab-bar-border {
-  background-color: white;
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 1rpx;
-  transform: scaleY(0.5);
+.tab-bar-panel {
+  pointer-events: auto;
+  box-sizing: border-box;
+  width: 702rpx;
+  height: 112rpx;
+  display: flex;
+  align-items: center;
+
+  /* 毛玻璃：半透明白底 + 背景模糊 */
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(24rpx) saturate(180%);
+  -webkit-backdrop-filter: blur(24rpx) saturate(180%);
+  border: 1rpx solid rgba(255, 255, 255, 0.7);
+  border-radius: 40rpx;
+  box-shadow: 0 12rpx 40rpx rgba(16, 64, 112, 0.16);
 }
 
 .tab-bar-item {
   flex: 1;
-  text-align: center;
+  height: 100%;
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
-  height: 100rpx;
-  border-top: white;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.tab-bar-item-hover {
+  opacity: 0.7;
+}
+
+/* 图标外层：选中态在此铺一块白色气泡 */
+.tab-bar-icon-wrap {
+  width: 76rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 30rpx;
+  /* 整体上移，让图标区贴近胶囊顶部（选中气泡可顶出胶囊上沿） */
+  margin-top: -18rpx;
+  transition: transform 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.tab-bar-item.active .tab-bar-icon-wrap {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6rpx 20rpx rgba(16, 64, 112, 0.16);
+  /* 选中图标再抬高一点，形成「浮出胶囊」的层次 */
+  transform: translateY(-8rpx);
 }
 
 .tab-bar-img {
-  width: 54rpx;
-  height: 54rpx;
+  width: 46rpx;
+  height: 46rpx;
 }
 
 .tab-bar-title {
+  margin-top: 2rpx;
   font-size: 20rpx;
+  line-height: 26rpx;
+  color: var(--color-gray-max, #6B7B93);
+}
+
+.tab-bar-item.active .tab-bar-title {
+  color: var(--color-primary, #406090);
+  font-weight: 600;
 }

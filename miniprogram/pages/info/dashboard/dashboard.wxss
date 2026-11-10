@@ -172,7 +172,7 @@
 }
 
 .status-medium {
-  color: #ffcc00;
+  color: #406090;
 }
 
 .status-poor {
@@ -704,7 +704,7 @@
 }
 
 .tnr-medium {
-  background-color: #ffcc00;
+  background-color: #406090;
 }
 
 .tnr-poor {

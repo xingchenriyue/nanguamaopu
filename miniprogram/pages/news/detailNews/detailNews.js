@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import {
   shareTo,
   getCurrentPath,
@@ -8,7 +9,9 @@ import {
   isManagerAsync
 } from "../../../utils/user";
 import api from "../../../utils/cloudApi";
-import { signCosUrl } from "../../../utils/common";
+import { signCosUrl, isWriteOk } from "../../../utils/common";
+import config from "../../../config";
+import { initLayout } from "../../../utils/page";
 
 const app = getApp();
 Page({
@@ -17,6 +20,10 @@ Page({
    * 页面的初始数据
    */
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
     news_id: 0,
     news: 0,
     updateRequest: false,
@@ -30,6 +37,8 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
     this.setData({
       news_id: options.news_id
     })
@@ -64,9 +73,9 @@ Page({
     } else if (this.data.photos_path && this.data.photos_path.length > 0) {
       imageUrl = this.data.photos_path[0];
     }
-    // 如果连内容图片都没有，则默认获取当前的app_logo.png
+    // 如果连内容图片都没有，则默认使用 config.LOGO_PATH 指向的品牌 LOGO
     if (!imageUrl) {
-      imageUrl = '/pages/public/images/app_logo.png'; 
+      imageUrl = config.LOGO_PATH; 
     }
     return {
       title: share_text,
@@ -76,7 +85,7 @@ Page({
 
   async loadNews() {
     const that = this;
-    var { result } = await app.mpServerless.db.collection('news').findOne({
+    var { result } = await apiDb.collection('news').findOne({
       _id: this.data.news_id
     })
     console.log("[loadNews] - NewsDetail:", result);
@@ -132,13 +141,16 @@ Page({
     });
 
     console.log("curdOp(remove) res:", res);
-    if (!res.ok) {
+    // 【成功判定】后端 curdOp 的 remove 分支返回 deleteOne 的原始结果
+    // { deletedCount, acknowledged }，**没有 ok 字段**。
+    // 原判定 `!res.ok` 恒为真 → 公告已删除却提示「删除失败」。
+    if (!isWriteOk(res)) {
       wx.showToast({
         icon: 'none',
         title: '删除失败',
       });
       return
-    } else if (res.ok) {
+    } else {
       wx.showToast({
         title: '删除成功',
         icon: 'success',

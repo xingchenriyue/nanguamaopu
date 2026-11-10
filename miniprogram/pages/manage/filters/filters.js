@@ -1,5 +1,7 @@
+const apiDb = require('../../../utils/api.js').db;
 import { checkAuth } from "../../../utils/user";
-import { loadFilter } from "../../../utils/page";
+import { loadFilter, invalidateSettingCache } from "../../../utils/page";
+import { isWriteOk } from "../../../utils/common";
 import api from "../../../utils/cloudApi";
 const app = getApp();
 Page({
@@ -28,7 +30,9 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
-    if (await checkAuth(this, 2)) {
+    // 本页写入的是 setting 集合的 update，服务端要求 Level-99（见 unionOp/curdOp.js 的 permissionNeed.update.setting）。
+    // 原来写成 2 会导致 2~98 级能打开页面但一点保存就报 not a manager，这里与后端对齐。
+    if (await checkAuth(this, 99)) {
       await this.reloadFilter();
     }
   },
@@ -156,33 +160,70 @@ Page({
     }
   },
 
+  /**
+   * 写 setting.filter.campusCenters，并**回读校验**。
+   *
+   * 【为什么必须校验】PG 是列式表：列不存在时数据层把 $set 静默丢弃，接口照样返回 ok。
+   * 这正是用户反馈的「设置校区坐标后确定上传却无效」：前端只发请求、不看结果，
+   * 于是显示「已保存」但刷新后坐标消失。2026-11-10 已补 campusCenters 列
+   * （deploy/pg_addendum.sql），这里再加回读兜底，避免同类问题再次静默复发。
+   */
+  async saveCampusCenters(campusCenters) {
+    let res;
+    try {
+      res = await api.curdOp({
+        operation: "update",
+        collection: "setting",
+        item_id: "filter",
+        data: { campusCenters: campusCenters }
+      });
+    } catch (error) {
+      console.error('[filters] 保存校区坐标失败', error);
+      return { ok: false, msg: '保存失败，请检查网络后重试' };
+    }
+    if (!isWriteOk(res)) return { ok: false, msg: '保存失败（服务端未命中记录）' };
+    invalidateSettingCache('filter');
+    let after;
+    try { after = await loadFilter({ nocache: true }) || {}; }
+    catch (error) { return { ok: false, msg: '保存后回读失败，请重试' }; }
+    const saved = after.campusCenters || {};
+    const norm = (v) => (v === undefined || v === null ? '' : String(v));
+    for (const name of Object.keys(campusCenters)) {
+      const want = campusCenters[name];
+      const got = saved[name];
+      if (!got || norm(got.latitude) !== norm(want.latitude) || norm(got.longitude) !== norm(want.longitude)) {
+        return { ok: false, msg: '保存未生效，请重试' };
+      }
+    }
+    return { ok: true, saved };
+  },
+
   // 确认选择坐标
   async confirmMapPicker() {
-    var campusCenters = this.data.campusCenters || {};
+    var campusCenters = Object.assign({}, this.data.campusCenters || {});
     campusCenters[this.data.mapPickerCampus] = {
       latitude: this.data.mapPickerLat,
       longitude: this.data.mapPickerLng,
       scale: this.data.mapPickerScale,
     };
-    var centerStrs = this.data.campusCenterStrs || {};
+    var centerStrs = Object.assign({}, this.data.campusCenterStrs || {});
     centerStrs[this.data.mapPickerCampus] =
-      this.data.mapPickerLat.toFixed(6) + ', ' + this.data.mapPickerLng.toFixed(6) + ' | ' + this.data.mapPickerScale + '级';
+      Number(this.data.mapPickerLat).toFixed(6) + ', ' + Number(this.data.mapPickerLng).toFixed(6) + ' | ' + this.data.mapPickerScale + '级';
 
-    wx.showLoading({ title: '保存中...' });
-    await api.curdOp({
-      operation: "update",
-      collection: "setting",
-      item_id: "filter",
-      data: { campusCenters: campusCenters }
-    });
+    wx.showLoading({ title: '保存中...', mask: true });
+    const result = await this.saveCampusCenters(campusCenters);
+    wx.hideLoading();
+    if (!result.ok) {
+      wx.showToast({ icon: 'none', title: result.msg || '保存失败，请重试', duration: 2500 });
+      return;
+    }
     this.setData({
-      campusCenters: campusCenters,
+      campusCenters: result.saved || campusCenters,
       campusCenterStrs: centerStrs,
       mapPickerVisible: false,
       mapPickerHasCenter: true,
       pageMetaStyle: '',
     });
-    wx.hideLoading();
     wx.showToast({ title: '已保存', icon: 'success' });
   },
 
@@ -194,25 +235,39 @@ Page({
   // 删除当前校区的中心坐标
   async deleteCampusCenter() {
     var campus = this.data.mapPickerCampus;
-    var campusCenters = this.data.campusCenters || {};
-    var campusCenterStrs = this.data.campusCenterStrs || {};
+    var campusCenters = Object.assign({}, this.data.campusCenters || {});
+    var campusCenterStrs = Object.assign({}, this.data.campusCenterStrs || {});
     delete campusCenters[campus];
     delete campusCenterStrs[campus];
 
-    wx.showLoading({ title: '删除中...' });
-    await api.curdOp({
-      operation: "update",
-      collection: "setting",
-      item_id: "filter",
-      data: { campusCenters: campusCenters }
-    });
+    wx.showLoading({ title: '删除中...', mask: true });
+    let res;
+    try {
+      res = await api.curdOp({
+        operation: "update",
+        collection: "setting",
+        item_id: "filter",
+        data: { campusCenters: campusCenters }
+      });
+    } catch (error) {
+      console.error('[filters] 删除校区坐标失败', error);
+      wx.hideLoading();
+      wx.showToast({ icon: 'none', title: '删除失败，请重试' });
+      return;
+    }
+    wx.hideLoading();
+    if (!isWriteOk(res)) {
+      wx.showToast({ icon: 'none', title: '删除失败，请重试' });
+      return;
+    }
+    invalidateSettingCache('filter');
     this.setData({
       campusCenters: campusCenters,
       campusCenterStrs: campusCenterStrs,
       mapPickerVisible: false,
+      mapPickerHasCenter: false,
       pageMetaStyle: '',
     });
-    wx.hideLoading();
     wx.showToast({ title: '已删除坐标', icon: 'success' });
   },
 
@@ -334,7 +389,7 @@ Page({
     if (mainF.cateKey) {
       qf[mainF.cateKey] = category.name;
     }
-    var { result: catCountRes } = await app.mpServerless.db.collection('cat').count(qf)
+    var { result: catCountRes } = await apiDb.collection('cat').count(qf)
     console.log("[deleteOption] -", catCountRes);
     if (catCountRes) {
       wx.showToast({
@@ -379,15 +434,29 @@ Page({
         }
       }
     }
-    await api.curdOp({
-      operation: "update",
-      collection: "setting",
-      item_id: "filter",
-      data: {
-        area: area,
-        colour: colour
-      }
-    });
+    let res;
+    try {
+      res = await api.curdOp({
+        operation: "update",
+        collection: "setting",
+        item_id: "filter",
+        data: {
+          area: area,
+          colour: colour
+        }
+      });
+    } catch (error) {
+      console.error('[filters] 上传筛选失败', error);
+      wx.hideLoading();
+      wx.showToast({ icon: 'none', title: '上传失败，请重试' });
+      return;
+    }
+    if (!isWriteOk(res)) {
+      wx.hideLoading();
+      wx.showToast({ icon: 'none', title: '上传失败（服务端未命中记录）' });
+      return;
+    }
+    invalidateSettingCache('filter');
     await this.reloadFilter();
   },
 
@@ -468,15 +537,29 @@ console.log("删除", cateindex);
       }
     }
 
-    await api.curdOp({
-      operation: "update",
-      collection: "setting",
-      item_id: "filter",
-      data: {
-        campuses: data,
-        campusCenters: cleanCenters,
-      }
-    });
+    let res;
+    try {
+      res = await api.curdOp({
+        operation: "update",
+        collection: "setting",
+        item_id: "filter",
+        data: {
+          campuses: data,
+          campusCenters: cleanCenters,
+        }
+      });
+    } catch (error) {
+      console.error('[filters] 更新校区失败', error);
+      wx.hideLoading();
+      wx.showToast({ icon: 'none', title: '更新失败，请重试' });
+      return;
+    }
+    if (!isWriteOk(res)) {
+      wx.hideLoading();
+      wx.showToast({ icon: 'none', title: '更新失败（服务端未命中记录）' });
+      return;
+    }
+    invalidateSettingCache('filter');
     await this.reloadFilter();
   }
 })

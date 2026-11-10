@@ -2,6 +2,7 @@ import { getUser } from "../../utils/user";
 import { deepcopy } from "../../utils/utils";
 import api from "../../utils/cloudApi";
 import { uploadFile } from "../../utils/common";
+import { stripSignParams } from "../../utils/page";
 import { removeCacheItem } from '../../utils/cache';
 const app = getApp();
 
@@ -156,8 +157,34 @@ Component({
 
     async uploadAvatar(tempFilePath) {
       const openid = this.data.user.openid;
-      if (!tempFilePath.includes("://tmp")) {
-        return { fileId: this.data.user.userInfo.avatarUrlId, fileUrl: tempFilePath };
+      // 【本地临时文件判定】
+      // 微信开发者工具返回的临时路径形如 wxfile://temp/12.png（注意是 "://temp"，
+      // 不是 "://tmp"），真机形如 http://tmp/xxx 或 wxfile://tmp/xxx。
+      // 原判定只认 "://tmp"，导致开发者工具下的 wxfile://temp/N.png 被误判为
+      // 「已上传的云地址」直接返回 → 本地路径被写进 user 表 avatarUrl →
+      // 之后被 signCosUrl 当成 OSS key 签名，生成
+      // https://oss.xcry.top/wxfile%3A//temp/12.png?... 这种必然加载失败的 URL。
+      // 这里改成「只要是本地临时路径就上传」，覆盖工具与真机两种形态。
+      const isLocalTemp = typeof tempFilePath === 'string' && (
+        tempFilePath.startsWith('wxfile://') ||
+        tempFilePath.startsWith('http://tmp') ||
+        tempFilePath.startsWith('https://tmp') ||
+        tempFilePath.includes('://tmp')
+      );
+      if (!isLocalTemp) {
+        // 【写库前必须剥离签名参数】
+        // 这里的 tempFilePath 来自 getUser()，是「已签名」的头像 URL
+        // （签名有效期仅 15 分钟）。若原样写进 user 表，
+        // 库里就会留下一条带 ?Expires=... 的短效 URL：
+        //   1. 15 分钟后该 URL 必然失效，任何直接消费它的路径都会 403；
+        //   2. 库里存的是「过期时间戳」而非稳定地址，不可维护。
+        // 正确做法：库里只存裸 URL，读取时由 utils/user.js 现签现用。
+        // 注意 utils/oss.js 的 extractKey 只取 pathname（丢弃 query），
+        // 所以签名 URL 剥离参数后仍是同一个 OSS 对象，签名可正常重算。
+        return {
+          fileId: this.data.user.userInfo.avatarUrlId,
+          fileUrl: stripSignParams(tempFilePath),
+        };
       }
 
       //获取后缀

@@ -1,3 +1,12 @@
+/**
+ * utils/msg.js —— 订阅消息模板配置读取与发送
+ * ============================================================================
+ * 【职责】订阅消息模板配置读取与发送。
+ * 【依赖】./api.js（db）、./cloudApi.js、./common.js
+ * 【注意事项】订阅消息需用户授权；发送失败由 cloudApi 抛出带文案的 Error，不静默。
+ * ============================================================================
+ */
+const apiDb = require('./api.js').db;
 import { formatDate, arrayResort } from "./utils";
 import { getGlobalSettings } from "./page";
 import api from "./cloudApi";
@@ -108,7 +117,7 @@ function sendVerifyNotice(notice_list) {
 // 发送回复消息
 async function sendReplyNotice(openid, fb_id) {
   const cfg = msgConfig.feedback;
-  const { result: feedback } = await app.mpServerless.db.collection('feedback').findOne({ _id: fb_id });
+  const { result: feedback } = await apiDb.collection('feedback').findOne({ _id: fb_id });
   const content = feedback.feedbackInfo.length > 20 ? (feedback.feedbackInfo.substr(0, 18) + '..') : feedback.feedbackInfo;
 
   const data = {
@@ -136,20 +145,20 @@ async function sendReplyNotice(openid, fb_id) {
 // 发送提醒审核照片消息
 async function sendNotifyVertifyNotice(numUnchkPhotos) {
 
-  const { result: subMsgSettings } = await app.mpServerless.db.collection('setting').findOne({ _id: 'subscribeMsg' });
+  const { result: subMsgSettings } = await apiDb.collection('setting').findOne({ _id: 'subscribeMsg' });
 
   const maxReceiverNum = subMsgSettings.verifyPhoto.receiverNum; // 最多推送给几位管理员
   var receiverCounter = 0;
   const verifyPhotoLevel = 2; // 所需最小管理员等级
 
-  const { result: managerList } = await app.mpServerless.db.collection('user').find({
+  const { result: managerList } = await apiDb.collection('user').find({
     manager: { $gte: verifyPhotoLevel }
   });
   var resortedML = await arrayResort(managerList);
   // console.log('resortML:', resortedML);
 
   //最早一条未审核照片的提交时间
-  const { result: uploadTimeList } = await app.mpServerless.db.collection('photo').find({ verified: false }, { sort: { mdate: 1 } });
+  const { result: uploadTimeList } = await apiDb.collection('photo').find({ verified: false }, { sort: { mdate: 1 } });
   // console.log("earliestUnverifyTime:", uploadTimeList);
   var earliestTime = formatDate(uploadTimeList[0].mdate, 'MM月dd日 hh:mm:ss');
   const cfg = msgConfig.notifyVerify;
@@ -185,16 +194,16 @@ async function sendNotifyVertifyNotice(numUnchkPhotos) {
 // 发送提醒处理反馈的订阅消息
 async function sendNotifyChkFeeedback() {
   const dealFeedbackLevel = 1;
-  const { result: subMsgSettings } = await app.mpServerless.db.collection('setting').findOne({ _id: 'subscribeMsg' });
+  const { result: subMsgSettings } = await apiDb.collection('setting').findOne({ _id: 'subscribeMsg' });
   const maxReceiverNum = subMsgSettings.chkFeedback.receiverNum; // 最多推送给几位管理员
   var receiverCounter = 0;
-  const { result: managerList } = await app.mpServerless.db.collection('user').find({
+  const { result: managerList } = await apiDb.collection('user').find({
     manager: { $gte: dealFeedbackLevel }
   });
   var resortedML = await arrayResort(managerList);
 
   // 最早一条未回复反馈的提交时间
-  const { result: uploadTimeList } = await app.mpServerless.db.collection('feedback').find({
+  const { result: uploadTimeList } = await apiDb.collection('feedback').find({
     dealed: false,
     replyInfo: { $exists: false }
   }, { sort: { openDate: 1 } });
@@ -274,14 +283,14 @@ function sendVerifyCommentNotice(notice_list) {
 
 // 发送提醒审核便利贴留言消息
 async function sendNotifyVertifyCommentNotice(numUnchkComment) {
-  const { result: subMsgSettings } = await app.mpServerless.db.collection('setting').find({ _id:'subscribeMsg' });
+  const { result: subMsgSettings } = await apiDb.collection('setting').find({ _id:'subscribeMsg' });
 
   // 借用一下照片的设置
   const maxReceiverNum = subMsgSettings.data.verifyPhoto.receiverNum; // 最多推送给几位管理员
   var receiverCounter = 0;
   const verifyPhotoLevel = 2; // 所需最小管理员等级
 
-  const { result: managerList } = await app.mpServerless.db.collection('user').find({
+  const { result: managerList } = await apiDb.collection('user').find({
     manager: { $gte: verifyPhotoLevel }
   });
   var resortedML = await arrayResort(managerList);
@@ -289,7 +298,7 @@ async function sendNotifyVertifyCommentNotice(numUnchkComment) {
 
  
   //最早一条未审核照片的提交时间
-  const { result: uploadTimeList } = await app.mpServerless.db.collection('comment').find({ verified: false }, { sort: { create_date: 1 } });
+  const { result: uploadTimeList } = await apiDb.collection('comment').find({ verified: false }, { sort: { create_date: 1 } });
   // console.log("earliestUnverifyTime:", uploadTimeList);
   var earliestTime = formatDate(uploadTimeList.data[0].create_date, 'MM月dd日 hh:mm:ss');
   const cfg = msgConfig.notifyVerify;

@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="拍照识猫" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/recognize/recognize.wxml-->
 
 <wxs module="m1">
@@ -12,7 +15,8 @@
 
 <image class="bgImg" src="/pages/public/images/system/background.svg"></image>
 
-<view id="positionWrapper" class="{{catList.length ? 'flowUp' : ''}}">
+<!-- 拍照/选图前：相机全屏取景；识别后：卡片上移 + 结果显示 -->
+<view id="positionWrapper" class="{{!photoPath ? 'fullscreen' : (catList.length || recognitionMessage ? 'flowUp' : '')}}">
 
   <view id="photoBox">
     <view id="previewArea">
@@ -35,6 +39,8 @@
         {{text_cfg.recognize.reselect_btn}}
       </view>
     </view>
+    <!-- 识别次数提示（全屏取景时浮在底部控制条上方） -->
+    <view class="ad-usage camera-usage" wx:if="{{!photoPath && adUsageText}}">{{adUsageText}}</view>
     <!-- 拍照/选图前功能栏 -->
     <view id="cameraControll" class="{{photoPath ? 'shrink' : ''}}">
       <image class='btn' bindtap='choosePhoto' src='/pages/packageA/pages/images/recognize/choose.png'></image>
@@ -43,13 +49,28 @@
     </view>
   </view>
 
+  <view id="recognizeStatus" wx:if="{{photoPath && recognitionMessage}}">
+    <view class="status-title">识别提示</view>
+    <view class="status-message">{{recognitionMessage}}</view>
+    <view class="again-btn" bindtap="reset">
+      <text class="again-icon">↺</text>
+      <text>再拍一张</text>
+    </view>
+  </view>
+
   <!-- 识别结果 -->
   <view id="resultBox" wx:if="{{catList.length && showResultBox}}">
-    <view class="tip" wx:if="{{catBoxList.length != 1}}">
+    <view class="tip" wx:if="{{recognizeMode !== 'meowid' && catBoxList.length != 1}}">
       <image mode='aspectFit' class='icon' src='/pages/packageA/pages/images/recognize/tip.png'></image>
       <text>{{!catBoxList.length ? text_cfg.recognize.no_cat_tip : text_cfg.recognize.multi_cat_tip}}</text>
     </view>
-    <view class="title">{{!catBoxList.length ? text_cfg.recognize.no_cat_rec_tip : (catBoxList.length == 1 ? text_cfg.recognize.single_cat_rec_tip : text_cfg.recognize.multi_cat_rec_tip)}}</view>
+    <view class="tip" wx:if="{{recognizeMode === 'meowid' && catCount > 1 && !catBoxList.length}}">检测到多只猫，当前展示第一只猫的匹配结果，建议使用单猫照片。</view>
+    <view class="title">{{recognizeMode === 'meowid' ? '相似猫咪（分数为相似度）' : (!catBoxList.length ? text_cfg.recognize.no_cat_rec_tip : (catBoxList.length == 1 ? text_cfg.recognize.single_cat_rec_tip : text_cfg.recognize.multi_cat_rec_tip))}}</view>
+    <!-- 检测到猫但云端未确认身份：只能给相似猫，不能自动认定 -->
+    <view class="tip" wx:if="{{unknownCat}}">
+      <image mode='aspectFit' class='icon' src='/pages/packageA/pages/images/recognize/tip.png'></image>
+      <text>相似度仅供参考，还不能确认是哪只猫猫~</text>
+    </view>
 
     <view class="filter">
       <picker bindchange="catFilter" data-type="campus" value="{{index}}" range="{{campusList}}">
@@ -95,10 +116,16 @@
       </view>
       <view class="prob">{{m1.toFixed(100 * item.prob, 1) + '%'}}</view>
     </view>
-    <view class="footnote">{{text_cfg.recognize.bottom_tip}}</view>
+    <view class="ad-usage">{{adUsageText}}</view>
+    <view class="footnote">{{recognizeMode === 'meowid' ? '识别范围为注册完成的猫咪，相似度不代表识别正确率。' : text_cfg.recognize.bottom_tip}}</view>
+    <!-- 继续识别：不用退页重进，直接回到相机 -->
+    <view class="again-btn" bindtap="reset">
+      <text class="again-icon">↺</text>
+      <text>继续识别</text>
+    </view>
   </view>
 
-  <view id="adBox" wx:if="{{catList.length && showResultBox && showAdBox}}">
+  <view id="adBox" wx:if="{{recognizeMode === 'custom' && catList.length && showResultBox && showAdBox}}">
     <view class="ad-tip">{{text_cfg.recognize.ad_tip}}</view>
     <ad unit-id="{{ad.banner}}" ad-intervals="30" bindload="adLoad" binderror="adError" bindclose="adClose"></ad>
   </view>

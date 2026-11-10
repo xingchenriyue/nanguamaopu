@@ -51,7 +51,7 @@
           <view class="custom-type-option" bindtap="toggleCustomType">
             <text>{{useCustomType ? '选择预设类型' : '使用自定义类型'}}</text>
           </view>
-          <input wx:if="{{useCustomType}}" class="custom-type-input" type="text" 
+          <input wx:if="{{useCustomType}}" class="custom-type-input v-input" type="text" 
                  placeholder="请输入自定义疫苗类型" 
                  bindinput="customTypeInput" 
                  value="{{vaccineForm.custom_vaccine_type}}"></input>
@@ -76,11 +76,11 @@
         </view>
         <view class="form-item">
           <view class="form-label">接种地点</view>
-          <input class="location-input" type="text" name="location" placeholder="请输入接种地点" value="{{vaccineForm.location}}"></input>
+          <input class="location-input v-input" type="text" name="location" placeholder="请输入接种地点" value="{{vaccineForm.location}}"></input>
         </view>
         <view class="form-item">
           <view class="form-label">备注</view>
-          <textarea class="remarks-input" name="remarks" placeholder="请输入备注信息（如：药物品牌、剂量、注意事项等）" value="{{vaccineForm.remarks}}"></textarea>
+          <textarea class="remarks-input v-textarea" name="remarks" placeholder="请输入备注信息（如：药物品牌、剂量、注意事项等）" value="{{vaccineForm.remarks}}"></textarea>
         </view>
         <view class="form-buttons">
           <button class="cancel-btn" bindtap="cancelVaccine">取消</button>
@@ -100,7 +100,7 @@
     </view>
     <view class="modal-body">
       <view class="type-add-form">
-        <input type="text" placeholder="输入新疫苗名称" bindinput="onNewTypeInput" value="{{newVaccineType}}"></input>
+        <input class="v-input" type="text" placeholder="输入新疫苗名称" bindinput="onNewTypeInput" value="{{newVaccineType}}"></input>
         <button class="add-type-btn" bindtap="addVaccineType">添加</button>
       </view>
       <view class="type-list">

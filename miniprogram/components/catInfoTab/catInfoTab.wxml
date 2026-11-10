@@ -14,12 +14,12 @@
     <view class="card-body">
       <view class="form-item">
         <view class="form-label">名称</view>
-        <input type="text" value="{{cat.name}}" bindinput="inputText" data-key="name" placeholder="请输入猫猫名称"></input>
+        <input class="form-input" type="text" value="{{cat.name}}" bindinput="inputText" data-key="name" placeholder="请输入猫猫名称"></input>
       </view>
       
       <view class="form-item">
         <view class="form-label">昵称</view>
-        <input type="text" value="{{cat.nickname}}" bindinput="inputText" data-key="nickname" placeholder="请输入昵称（可选）"></input>
+        <input class="form-input" type="text" value="{{cat.nickname}}" bindinput="inputText" data-key="nickname" placeholder="请输入昵称（可选）"></input>
       </view>
       
       <view class="form-item">
@@ -74,7 +74,7 @@
       
       <view class="form-item">
         <view class="form-label">外貌特点</view>
-        <input type="text" value="{{cat.characteristics}}" bindinput="inputText" data-key="characteristics" placeholder="有什么特征？"></input>
+        <input class="form-input" type="text" value="{{cat.characteristics}}" bindinput="inputText" data-key="characteristics" placeholder="有什么特征？"></input>
       </view>
     </view>
   </view>
@@ -89,12 +89,12 @@
     <view class="card-body">
       <view class="form-item">
         <view class="form-label">性格</view>
-        <input type="text" value="{{cat.habit}}" bindinput="inputText" data-key="habit" placeholder="猫猫的性格怎样？"></input>
+        <input class="form-input" type="text" value="{{cat.habit}}" bindinput="inputText" data-key="habit" placeholder="猫猫的性格怎样？"></input>
       </view>
       
       <view class="form-item">
         <view class="form-label">撸猫指南</view>
-        <textarea value="{{cat.tutorial}}" bindinput="inputText" data-key="tutorial" placeholder="如何正确撸猫？ta有什么故事？"></textarea>
+        <textarea class="form-textarea" value="{{cat.tutorial}}" bindinput="inputText" data-key="tutorial" placeholder="如何正确撸猫？ta有什么故事？"></textarea>
       </view>
     </view>
   </view>
@@ -107,16 +107,6 @@
       </view>
     </view>
     <view class="card-body">
-      <view class="form-item">
-        <view class="form-label">绝育状态</view>
-        <picker mode="selector" range='{{pickers.sterilized}}' value='{{picker_selected.sterilized}}' bindchange='pickerChange' data-key='sterilized'>
-          <view class="picker-container">
-            <text class="picker-text">{{cat.sterilized !== undefined ? (cat.sterilized ? pickers.sterilized[1] : pickers.sterilized[0]) : '请选择'}}</text>
-            <text class="iconfont icon-arrow-down picker-icon"></text>
-          </view>
-        </picker>
-      </view>
-      
       <view class="form-item">
         <view class="form-label">领养状态</view>
         <picker mode="selector" range='{{pickers.adopt}}' value='{{picker_selected.adopt}}' bindchange='pickerChange' data-key='adopt'>
@@ -175,11 +165,9 @@
       </view>
     </view>
     <view class="card-body">
-      <view class="filter-control">
-        <view class="switch-container">
-          <switch checked="{{only_best_photo}}" bindchange="switchOnlyBest" color="var(--color-primary)" />
-          <text class="switch-label">只显示精选照片</text>
-        </view>
+      <view class="switch-container">
+        <switch class="scale-switch" checked="{{only_best_photo}}" bindchange="switchOnlyBest" color="var(--color-primary)" />
+        <text class="switch-label">只显示精选照片</text>
       </view>
     </view>
   </view>
@@ -218,10 +206,9 @@
       </view>
     </view>
 
-    <view class="load-more-container">
-      <!-- <view class="bottom-hint" hidden="{{!bottomShow}}">{{bottomText}}</view> -->
-      <button class="load-more-button" bindtap="clickLoad">{{bottomText}}</button>
-      <!-- toDo: 用户继续上拉，加载更多猫图 -->
+    <view class="load-more-container" wx:if="{{bottomShow}}">
+      <image wx:if="{{loadingPhotos}}" class="loading-animation" src="/pages/public/images/system/loading.gif"></image>
+      <view wx:if="{{!loadingPhotos}}" class="bottom-hint">{{bottomText}}</view>
     </view>
   </block>
 

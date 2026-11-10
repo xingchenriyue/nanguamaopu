@@ -1,9 +1,12 @@
+const apiDb = require('../../../utils/api.js').db;
 // miniprogram/pages/manage/managers.js
 import { checkAuth } from "../../../utils/user";
 import { formatDate } from "../../../utils/utils";
 import api from "../../../utils/cloudApi";
-import { signCosUrl } from "../../../utils/common";
+import { signCosUrl, isWriteOk } from "../../../utils/common";
 import { isDemoMode } from "../../../utils/demo";
+import { initLayout } from "../../../utils/page";
+import { getPageMetrics } from "../../../utils/layout";
 
 // 是否正在加载
 var loading = false;
@@ -14,13 +17,16 @@ Page({
    * 页面的初始数据
    */
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
     tipText: '正在鉴权...',
     tipBtn: false,
     userSearch: '',
     managerOnly: false,
     users: [],
+    // 内层滚动区可用高度（由 initLayout 注入：视口高度 - 毛玻璃顶栏）
     windowHeight: "300",
-    manager_types: ['0-非管理员', '1-审核照片、删除便利贴', '2-修改猫猫、校区、关系、徽章', '3-发布公告', '99-管理成员、页面设置、处理图片'],
+    manager_types: ['0-非管理员', '1-审核照片、删除便利贴', '2-修改猫猫、校区、关系、徽章', '3-发布公告', '99-管理成员、页面设置、处理图片、识猫服务'],
     role_types: ['游客', '特邀用户'],
     // Tab
     currentTab: 'users',
@@ -33,6 +39,8 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
     if (await checkAuth(this, 99)) {
       await this.loadUsers(true);
       this.getHeights();
@@ -94,7 +102,7 @@ Page({
       query["mapAccess.status"] = "approved"
     }
     console.log("query", query);
-    var { result: userRes } = await app.mpServerless.db.collection('user').find(query, { skip: users.length, limit: 10 })
+    var { result: userRes } = await apiDb.collection('user').find(query, { skip: users.length, limit: 10 })
     await this.signUserAvatars(userRes);
     console.log(userRes);
     wx.hideLoading();
@@ -154,16 +162,68 @@ Page({
   },
 
   // 获取一下页面高度，铺满scroll-view
+  // 注意：自定义导航栏下 windowHeight 不再减去原生导航栏高度，
+  // 语义与改造前不同，这里统一用 layout.js 推导的 contentHeight。
   getHeights() {
-    const res = wx.getSystemInfoSync();
+    const metrics = getPageMetrics(0);
     this.setData({
-      "windowHeight": res.windowHeight,
+      "windowHeight": metrics.contentHeight,
     });
   },
 
   // ========== 用户设置更新（管理员等级 + 角色，一次更新） ==========
 
   // 管理员等级 picker 变动
+  /**
+   * 设置单个用户的「免看识猫广告」权限。
+   * 写进 user.userInfo.adExemptUntil（jsonb，不新增列）：0 = 永久，时间戳 = 到期时间，
+   * 删除该键 = 取消免广告。识猫页读它决定是否跳过识别次数门禁。
+   */
+  async setAdExempt(e) {
+    const index = e.currentTarget.dataset.index;
+    const user = this.data.users[index];
+    if (!user) return;
+    const current = user.userInfo && user.userInfo.adExemptUntil;
+    let hint = '当前：未免广告';
+    if (current === 0 || current === '0') hint = '当前：永久免广告';
+    else if (Number(current) > Date.now()) hint = '当前：有效期至 ' + formatDate(Number(current)) + '（约 ' + Math.ceil((Number(current) - Date.now()) / 86400000) + ' 天）';
+
+    const res = await wx.showModal({
+      title: '免看识猫广告',
+      content: hint,
+      editable: true,
+      placeholderText: '天数：0=永久，留空=取消免广告',
+      confirmText: '保存',
+    });
+    if (!res.confirm) return;
+    const raw = String(res.content || '').trim();
+    const userInfo = Object.assign({}, user.userInfo || {});
+    if (raw === '') {
+      delete userInfo.adExemptUntil;
+    } else {
+      const days = parseInt(raw, 10);
+      if (!Number.isFinite(days) || days < 0) {
+        wx.showToast({ icon: 'none', title: '请输入不小于 0 的整数' });
+        return;
+      }
+      userInfo.adExemptUntil = days === 0 ? 0 : Date.now() + days * 86400000;
+    }
+    let result;
+    try {
+      result = await api.curdOp({ operation: 'update', collection: 'user', item_id: user._id, data: { userInfo } });
+    } catch (error) {
+      console.error('[managers] 保存免广告失败', error);
+      wx.showToast({ icon: 'none', title: '保存失败，请重试' });
+      return;
+    }
+    if (!isWriteOk(result)) {
+      wx.showToast({ icon: 'none', title: '保存失败（服务端未命中记录）' });
+      return;
+    }
+    this.setData({ ['users[' + index + '].userInfo']: userInfo });
+    wx.showToast({ title: '已保存' });
+  },
+
   onManagerChange(e) {
     const index = e.currentTarget.dataset.index;
     const value = parseInt(e.detail.value);
@@ -213,7 +273,11 @@ Page({
     })
 
     console.log("updateUserSettings Result:", res);
-    if (res.ok && res.n == 1) {
+    // 【成功判定】后端 curdOp 的 update 分支返回 updateOne 的原始结果：
+    //   { matchedCount, modifiedCount, acknowledged }（见后端 src/handlers/curdOp.js
+    //   与 src/db/pg.js 的 updateOne）。**没有 ok 字段，也没有旧 EMAS 的 n 字段**。
+    //   原判定 `res.ok && res.n == 1` 恒为假 → 明明写入成功却提示「更新失败」。
+    if (isWriteOk(res)) {
       wx.showToast({
         title: '更新成功',
       });
@@ -258,7 +322,7 @@ Page({
         item_id: user._id,
         data: { mapAccess: nextVal }
       });
-      if (!res.ok) {
+      if (!isWriteOk(res)) {
         // 回滚
         const rollback = currentApproved
           ? { status: 'approved', applyReason: '管理员手动开通', applyDate: api.getDate() }
@@ -281,12 +345,19 @@ Page({
   async loadApplications() {
     this.setData({ appsLoading: true });
     try {
-      const { result: users } = await app.mpServerless.db.collection('user')
+      const { result: users } = await apiDb.collection('user')
         .find({ 'mapAccess.status': 'pending' }, { sort: { 'mapAccess.applyDate': -1 } });
       const apps = await Promise.all((users || []).map(async u => {
+        // 【字段名必须用 PG 实际列，否则 count 恒为 0】
+        // photo 表没有 openid 列，只有 _openid（上传者）与 user_id（= user 表的 _id）；
+        //   用 _openid 也不行 —— utils/db.js 的 normalizeQuery 会把客户端传的 _openid
+        //   覆盖为「当前登录用户」的 openid，管理员查别人的照片就查不到了。
+        //   所以按 user._id 关联 photo.user_id（实测 photo.user_id ↔ user._id 完全对应，
+        //   且 photo._openid 与该 user.openid 一致）。
+        // comment 表的作者列叫 user_openid（同样没有 openid 列）。
         const [photoRes, commentRes] = await Promise.all([
-          app.mpServerless.db.collection('photo').count({ openid: u.openid, verified: true }),
-          app.mpServerless.db.collection('comment').count({ openid: u.openid, deleted: { $ne: true }, needVerify: { $ne: true } })
+          apiDb.collection('photo').count({ user_id: u._id, verified: true }),
+          apiDb.collection('comment').count({ user_openid: u.openid, deleted: { $ne: true }, needVerify: { $ne: true } })
         ]);
         return {
           _id: u._id,

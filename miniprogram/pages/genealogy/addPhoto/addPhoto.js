@@ -1,8 +1,8 @@
+const apiDb = require('../../../utils/api.js').db;
 import {
   generateUUID,
   getCurrentPath,
-  shareTo,
-  compressImage
+  shareTo
 } from "../../../utils/utils";
 import {
   getPageUserInfo,
@@ -60,7 +60,7 @@ Page({
         canUpload: true,
       });
     } else {
-      var catRes = (await app.mpServerless.db.collection('cat').findOne({ _id: cat_id }, { projection: { birthday: 1, name: 1, campus: 1 } })).result;
+      var catRes = (await apiDb.collection('cat').findOne({ _id: cat_id }, { projection: { birthday: 1, name: 1, campus: 1 } })).result;
       this.setData({
         cat: catRes,
         birth_date: catRes.birthday || ''
@@ -283,20 +283,32 @@ Page({
       return;
     }
 
-    var res = await wx.chooseMedia({
-      count: config.chooseMediaCount,
-      mediaType: ['image'],
-      sizeType: ["compressed"],
-      sourceType: ['album', 'camera'],
-    })
+    var res;
+    try {
+      res = await wx.chooseMedia({
+        count: config.chooseMediaCount,
+        mediaType: ['image'],
+        sizeType: ["compressed"],
+        sourceType: ['album', 'camera'],
+      })
+    } catch (err) {
+      // 用户主动取消（chooseMedia:fail cancel）不是错误，静默返回，
+      // 否则会变成未处理的 Promise 拒绝（app.js 会打印告警）
+      const errMsg = (err && (err.errMsg || err.message)) || '';
+      if (errMsg.includes('cancel')) {
+        return;
+      }
+      console.error('[chooseImg] 选择图片失败:', err);
+      wx.showToast({
+        title: '选择图片失败',
+        icon: 'none'
+      });
+      return;
+    }
     var photos = [];
     for (var file of res.tempFiles) {
-      if (file.size > 512 * 1024) {
-        file.path = await compressImage(file.tempFilePath, 30);
-        console.log("compressed path:", file.path);
-      } else {
-        file.path = file.tempFilePath;
-      }
+      // 客户端不再压缩：原图直接上传，压缩/水印由后端 processPhoto 统一处理
+      file.path = file.tempFilePath;
 
       photos.push({
         file: file
@@ -438,11 +450,11 @@ Page({
 
   async ifSendNotifyVeriftMsg() {
     try {
-      const subMsgSetting = (await app.mpServerless.db.collection('setting').findOne({ _id: 'subscribeMsg' })).result;
+      const subMsgSetting = (await apiDb.collection('setting').findOne({ _id: 'subscribeMsg' })).result;
       if (!subMsgSetting) return;
       const triggerNum = subMsgSetting.verifyPhoto?.triggerNum;
       if (!triggerNum) return;
-      var numUnchkPhotos = (await app.mpServerless.db.collection('photo').count({
+      var numUnchkPhotos = (await apiDb.collection('photo').count({
         verified: false
       })).result;
 

@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 import config from "../../../config";
 import {
   shareTo,
@@ -23,7 +24,8 @@ import {
 } from "../../../utils/cat";
 import {
   getGlobalSettings
-} from "../../../utils/page";
+} from "../../../utils/page"
+import { initLayout } from "../../../utils/page";;
 import { convertRatingList, genDefaultRating } from "../../../utils/rating";
 import { showMpcode } from "../../../utils/mpcode";
 import { signCosUrl } from "../../../utils/common";
@@ -66,12 +68,19 @@ Page({
    * 页面的初始数据
    */
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
     cat: {},
+    // poster 组件的封面图。WXML 表达式不支持对象字面量 {}，
+    // 所以不能在 wxml 里写 coverImg="{{cat.avatar || {}}}"，必须在 JS 侧算好后单独绑定。
+    // 初始值必须是对象（不能是 null），否则会触发微信组件属性类型检查告警。
+    posterCoverImg: {},
     album: [], // 所有照片
     bottomText: config.text.detail_cat.bottom_text_loading,
     showHoverHeader: false, // 显示浮动的相册标题
     hideBgBlock: false, // 隐藏背景黄块
-    canvas: {}, // 画布的宽高
     canUpload: false, // 是否可以上传照片
     showGallery: false,
     galleryPhotos: [],
@@ -89,10 +98,6 @@ Page({
     // 是否展开评分详情
     showDetailRating: false,
 
-    // 疫苗记录相关
-    showVaccineHistory: false,
-    vaccineHistory: [],
-
     // 医疗记录相关
     showMedicalHistory: false,
     medicalTimeline: [],
@@ -107,24 +112,30 @@ Page({
 
   },
 
-  jsData: {
-    // 页面设置，从global读取
-    page_settings: {},
-    photoMax: 0,
-    albumMax: 0,
-    loadingAlbum: false,
-    whichGallery: "", // 预览时记录展示的gallery是精选还是相册
-    infoHeight: 0, // 单位是px
-    heights: {}, // 系统的各种heights
-    cat_id: "",
-    album_raw: [],
-    badgeDefMap: null
-  },
-
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad: async function (options) {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
+    // jsData 必须是页面实例属性，不能作为 Page 的顶层选项：
+    // 微信会把 Page 顶层的未知选项当成「游离数据」走 setData，
+    // 它的值是对象时就会报 "Free data with key \"jsData\" ... seems not a simple value"。
+    // 注意：放进 data 里反而是允许的，data 中的对象/数组不会触发此警告。
+    this.jsData = {
+      // 页面设置，从global读取
+      page_settings: {},
+      photoMax: 0,
+      albumMax: 0,
+      loadingAlbum: false,
+      whichGallery: "", // 预览时记录展示的gallery是精选还是相册
+      infoHeight: 0, // 单位是px
+      heights: {}, // 系统的各种heights
+      cat_id: "",
+      album_raw: [],
+      badgeDefMap: null
+    };
+
     this.jsData.cat_id = options.cat_id;
 
     // 首屏加速：同步读取列表页塞进 globalData 的猫数据，立即渲染基础信息，
@@ -133,7 +144,8 @@ Page({
     app.globalData.pendingCatDetail = null;
     if (init && init.cat && init.cat._id === this.jsData.cat_id
       && Date.now() - (init.ts || 0) < 30000) {
-      this.setData({ cat: this.buildInitCat(init.cat) });
+      const initCat = this.buildInitCat(init.cat);
+      this.setData({ cat: initCat, posterCoverImg: initCat.avatar });
     }
 
     // 判断是否为管理员：不阻塞加载，结果回来再刷新视图
@@ -225,7 +237,20 @@ Page({
   /**
    * 生命周期函数--监听页面显示
    */
-  onShow: function () { },
+  onShow: function () {
+    if (!this.jsData.medicalTabOpened) return;
+    this.jsData.medicalTabOpened = false;
+    this.setData({
+      medicalTimeline: [],
+    });
+    apiDb.collection('cat').findOne({ _id: this.jsData.cat_id }).then(({ result: cat }) => {
+      if (cat) this.setData({
+        'cat.sterilized': cat.sterilized,
+        'cat.sterilized_time': cat.sterilized_time || null
+      });
+    }).catch(error => console.error('刷新绝育状态失败:', error));
+    this.getMedicalTimeline(this.jsData.cat_id);
+  },
 
   /**
    * 生命周期函数--监听页面隐藏
@@ -273,7 +298,7 @@ Page({
   },
 
   async loadCat() {
-    let { result: cat } = await app.mpServerless.db.collection('cat').findOne({
+    let { result: cat } = await apiDb.collection('cat').findOne({
       _id: this.jsData.cat_id,
       deleted: { $ne: 1 }
     });
@@ -286,12 +311,11 @@ Page({
     } else {
       cat.photo = [];
     }
-    if (!cat.characteristics) cat.characteristics = '';
-    if (cat.characteristics.length) {
-      cat.characteristics_string = cat.characteristics + '\n';
-    } else {
-      cat.characteristics_string = '';
-    }
+    // PG 后端 characteristics 为 JSONB 数组（Mongo 版为字符串），统一兼容两种形态
+    let chars = cat.characteristics;
+    if (Array.isArray(chars)) chars = chars.join('，');
+    cat.characteristics = chars;
+    cat.characteristics_string = chars ? (chars + '\n') : '';
     if (cat.habit) {
       cat.characteristics_string += cat.habit;
     }
@@ -303,7 +327,9 @@ Page({
       cat.rating.catRatings = convertRatingList(cat.rating.scores);
     }
     this.setData({
-      cat: cat
+      cat: cat,
+      // poster 封面同步（见 data.posterCoverImg 注释）
+      posterCoverImg: cat.avatar
     });
 
     await Promise.all([
@@ -312,7 +338,6 @@ Page({
       this.loadFollowCount(),
       this.loadRelations(),
       this.reloadCatBadge(),
-      this.getLatestVaccine(cat._id),
       this.getMedicalTimeline(cat._id),
     ]);
 
@@ -364,7 +389,7 @@ Page({
       verified: true,
       best: true
     };
-    this.jsData.photoMax = (await app.mpServerless.db.collection('photo').count(qf)).result;
+    this.jsData.photoMax = (await apiDb.collection('photo').count(qf)).result;
     await Promise.all([
       this.loadMorePhotos(),
       this.reloadAlbum(),
@@ -379,7 +404,7 @@ Page({
 
   async loadFollowCount() {
     const { cat_id } = this.jsData;
-    const { result: total } = await app.mpServerless.db.collection('user').count({
+    const { result: total } = await apiDb.collection('user').count({
       followCats: cat_id
     });
 
@@ -394,7 +419,7 @@ Page({
       cat_id: this.jsData.cat_id,
       verified: true
     };
-    this.jsData.albumMax = (await app.mpServerless.db.collection('photo').count(qf_album)).result;
+    this.jsData.albumMax = (await apiDb.collection('photo').count(qf_album)).result;
     this.jsData.album_raw = [];
     await this.loadMoreAlbum();
     this.setData({
@@ -421,7 +446,7 @@ Page({
     //   mask: true
     // })
 
-    let { result: res } = await app.mpServerless.db.collection('photo').find(
+    let { result: res } = await apiDb.collection('photo').find(
       qf,
       { sort: { mdate: -1 }, skip: now, limit: step } // 按时间倒序，先展示最新的
     )
@@ -559,7 +584,7 @@ Page({
     // 使用聚合查询来排序(同一月份内按收录时间倒序)
     if (orderItem.key === 'shooting_date') {
       const sortOrder = orderItem.order === 'asc' ? 1 : -1;
-      res = (await app.mpServerless.db.collection('photo').aggregate([
+      res = (await apiDb.collection('photo').aggregate([
         { $match: qf },
         // 提取月份 (YYYY-MM)
         { $addFields: { month: { $substr: ["$shooting_date", 0, 7] } } },
@@ -571,7 +596,7 @@ Page({
     } else {
       // 按收录时间排序
       const sortOrder = orderItem.order === 'asc' ? 1 : -1;
-      res = (await app.mpServerless.db.collection('photo').find(
+      res = (await apiDb.collection('photo').find(
         qf, 
         { 
           sort: { mdate: sortOrder }, 
@@ -987,76 +1012,7 @@ Page({
     }
   },
 
-  // 获取最新疫苗记录（疫苗已并入医疗记录，从 medical 集合按 type=vaccine 读取）
-  async getLatestVaccine(cat_id) {
-    try {
-      const result = await api.medicalOp({
-        operation: 'list',
-        cat_id: cat_id,
-        type: 'vaccine'
-      });
-
-      if (result?.result === true && Array.isArray(result.data) && result.data.length > 0) {
-        // 医疗记录字段映射回疫苗卡片需要的字段
-        const normalized = result.data.map(record => ({
-          ...record,
-          vaccine_type: record.title,
-          vaccine_date: record.record_date,
-        }));
-        // 处理所有疫苗记录的日期格式
-        const vaccineHistory = normalized.map(vaccine => {
-          // 判断疫苗是否过期
-          const today = new Date();
-          const expireDate = vaccine.expire_date ? new Date(vaccine.expire_date) : null;
-          const is_expired = expireDate ? today > expireDate : false;
-          return {
-            ...vaccine,
-            vaccine_date_formatted: vaccine.vaccine_date ? formatDate(vaccine.vaccine_date, "yyyy-MM-dd") : '',
-            expire_date_formatted: vaccine.expire_date ? formatDate(vaccine.expire_date, "yyyy-MM-dd") : '',
-            next_vaccine_date_formatted: vaccine.next_vaccine_date ? formatDate(vaccine.next_vaccine_date, "yyyy-MM-dd") : '',
-            is_expired
-          };
-        });
-
-        // 按日期排序
-        vaccineHistory.sort((a, b) => {
-          const dateA = a.vaccine_date ? new Date(a.vaccine_date).getTime() : 0;
-          const dateB = b.vaccine_date ? new Date(b.vaccine_date).getTime() : 0;
-          return dateB - dateA;
-        });
-
-        // 保存所有疫苗记录
-        this.setData({
-          vaccineHistory
-        });
-
-        // 设置最新的疫苗记录
-        if (vaccineHistory[0] && vaccineHistory[0].vaccine_date) {
-          this.setData({
-            'cat.lastVaccine': vaccineHistory[0]
-          });
-        }
-      }
-    } catch (error) {
-      console.error('获取疫苗记录失败:', error);
-    }
-  },
-
-  // 显示疫苗记录历史
-  toVaccineDetail() {
-    this.setData({
-      showVaccineHistory: true
-    });
-  },
-
-  // 隐藏疫苗记录历史
-  hideVaccineHistory() {
-    this.setData({
-      showVaccineHistory: false
-    });
-  },
-
-  // 获取医疗记录时间线（绝育/就诊/驱虫等）
+  // 获取统一的医疗记录时间线（包含疫苗）
   async getMedicalTimeline(cat_id) {
     try {
       const result = await api.medicalOp({
@@ -1068,7 +1024,9 @@ Page({
         const medicalTimeline = result.data.map(record => ({
           ...record,
           record_date_formatted: record.record_date ? formatDate(record.record_date, "yyyy-MM-dd") : '',
+          expire_date_formatted: record.expire_date ? formatDate(record.expire_date, "yyyy-MM-dd") : '',
           next_vaccine_date_formatted: record.next_vaccine_date ? formatDate(record.next_vaccine_date, "yyyy-MM-dd") : '',
+          is_expired: record.expire_date ? new Date(record.expire_date) < new Date() : false,
         }));
         // 按日期降序
         medicalTimeline.sort((a, b) => {
@@ -1097,10 +1055,11 @@ Page({
     });
   },
 
-  // 跳转医疗记录管理（管理员）
+  // 跳转猫猫管理的医疗选项卡（管理员）
   toMedicalManage() {
+    this.jsData.medicalTabOpened = true;
     wx.navigateTo({
-      url: '/pages/manage/medicalManage/medicalManage?cat_id=' + this.jsData.cat_id,
+      url: '/pages/manage/catManage/catManage?cat_id=' + this.jsData.cat_id + '&activeTab=medical',
     });
   },
 

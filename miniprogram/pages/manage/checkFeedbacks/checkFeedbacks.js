@@ -1,3 +1,4 @@
+const apiDb = require('../../../utils/api.js').db;
 // 处理反馈
 import { formatDate } from "../../../utils/utils";
 import { requestNotice, getMsgTplId } from "../../../utils/msg";
@@ -52,14 +53,14 @@ Page({
 
   async loadFeedbacks() {
     const nowLoaded = this.data.feedbacks.length;
-    var { result: feedbacks } = await app.mpServerless.db.collection('feedback').find({ dealed: this.data.checkHistory }, { sort: { openDate: -1 }, skip: nowLoaded, limit: step })
+    var { result: feedbacks } = await apiDb.collection('feedback').find({ dealed: this.data.checkHistory }, { sort: { openDate: -1 }, skip: nowLoaded, limit: step })
     console.log("[loadFeedbacks] -", feedbacks);
     // 填充userInfo
     await fillUserInfo(feedbacks, "openid", "userInfo");
     // 获取对应猫猫信息；将Date对象转化为字符串；判断是否已回复
     for (let i = 0; i < feedbacks.length; ++i) {
       if (feedbacks[i].cat_id != undefined) {
-        const { result: cat } = await app.mpServerless.db.collection('cat').findOne({ _id: feedbacks[i].cat_id }, {
+        const { result: cat } = await apiDb.collection('cat').findOne({ _id: feedbacks[i].cat_id }, {
           projection: { name: 1, campus: 1 }
         })
         feedbacks[i].cat = cat;
@@ -85,7 +86,7 @@ Page({
     wx.showLoading({
       title: '加载中...',
     });
-    var { result: fbRes } = await app.mpServerless.db.collection('feedback').count({
+    var { result: fbRes } = await apiDb.collection('feedback').count({
       dealed: this.data.checkHistory
     });
 

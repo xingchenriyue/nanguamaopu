@@ -1,3 +1,7 @@
 {
-  "usingComponents": {}
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

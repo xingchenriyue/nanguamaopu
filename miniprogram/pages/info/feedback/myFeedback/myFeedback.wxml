@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="我的反馈" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/info/feedback/myFeedback/myFeedback.wxml-->
 <view id='tips'>
   <text>你已经提供了 {{total}} 条反馈，\n点击所属猫猫名字可以跳转到该猫猫详情。\n</text>

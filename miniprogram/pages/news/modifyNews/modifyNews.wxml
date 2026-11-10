@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="修改公告" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/news/modifyNews/modifyNews.wxml-->
 
 <form bindsubmit="bindSubmit">

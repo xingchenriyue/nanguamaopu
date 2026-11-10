@@ -1,8 +1,9 @@
+const apiDb = require('../../../../utils/api.js').db;
 import { checkAuth } from "../../../../utils/user";
 import { levelOrderMap } from "../../../../utils/badge";
 import api from "../../../../utils/cloudApi";
 import { generateUUID } from "../../../../utils/utils";
-import { uploadFile, signCosUrl } from "../../../../utils/common"
+import { uploadFile, signCosUrl, normalizeWriteResult } from "../../../../utils/common"
 
 const app = getApp();
 
@@ -30,7 +31,7 @@ Page({
 
   // 加载已有的徽章
   async loadBadgeDef(id) {
-    const { result: badgeDef } = await app.mpServerless.db.collection('badge_def').findOne({
+    const { result: badgeDef } = await apiDb.collection('badge_def').findOne({
       _id: id,
     });
     if (!badgeDef) {
@@ -47,12 +48,25 @@ Page({
 
   // 更新信息
   async chooseImage(e) {
-    const res = await wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['album'],
-      maxDuration: 30,
-    });
+    var res;
+    try {
+      res = await wx.chooseMedia({
+        count: 1,
+        mediaType: ['image'],
+        sourceType: ['album'],
+        maxDuration: 30,
+      });
+    } catch (err) {
+      // 用户主动取消（chooseMedia:fail cancel）不是错误，静默返回，
+      // 否则会变成未处理的 Promise 拒绝（app.js 会打印告警）
+      const errMsg = (err && (err.errMsg || err.message)) || '';
+      if (errMsg.includes('cancel')) {
+        return;
+      }
+      console.error('[chooseImage] 选择图片失败:', err);
+      wx.showToast({ title: '选择图片失败', icon: 'none' });
+      return;
+    }
     this.setData({
       "badgeDef.img": res.tempFiles[0].tempFilePath,
     })
@@ -133,8 +147,12 @@ Page({
         collection: "badge_def",
         data: uploadItem
       });
+      // 【取 id 要剥一层 result】后端返回 { result: { insertedId }, ok: true }，
+      // 直接读 res.insertedId 是 undefined → 徽章 _id 丢失，
+      // 下次保存会当成新增，导致「徽章列表里出现重复/漏选」。
+      const wr = normalizeWriteResult(res);
       this.setData({
-        "badgeDef._id": res.insertedId,
+        "badgeDef._id": wr.insertedId,
         "badgeDef.img": await signCosUrl(cloudUrl),
       })
     }

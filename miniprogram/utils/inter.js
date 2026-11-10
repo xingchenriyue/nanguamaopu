@@ -1,3 +1,12 @@
+/**
+ * utils/inter.js —— 点赞、邀请等互动行为与本地缓存
+ * ============================================================================
+ * 【职责】点赞、邀请等互动行为与本地缓存。
+ * 【依赖】./api.js（db）、./cache.js、./msg.js、./user.js
+ * 【注意事项】点赞计数为敏感写操作，走 unionOp；缓存键按用户区分。
+ * ============================================================================
+ */
+const apiDb = require('./api.js').db;
 import { getUser, setUserRole } from "./user";
 import { getCacheItem, setCacheItem, cacheTime } from "./cache";
 import { trackLike } from "./achievement";
@@ -28,7 +37,7 @@ async function _likeGet(item_ids) {
     return [];
   }
   await ensureUser();
-  const { result } = await app.mpServerless.db.collection('inter').find({ type: TYPE_LIKE, uid: user.openid, item_id: { $in: item_ids } });
+  const { result } = await apiDb.collection('inter').find({ type: TYPE_LIKE, uid: user.openid, item_id: { $in: item_ids } });
   return result;
 }
 
@@ -70,7 +79,7 @@ async function likeToInvite() {
     return;
   }
 
-  const { result: count } = await app.mpServerless.db.collection('inter').count({ type: TYPE_LIKE, uid: user.openid });
+  const { result: count } = await apiDb.collection('inter').count({ type: TYPE_LIKE, uid: user.openid });
 
   if (count >= 2) {
     console.log("invite user with like_count >= 2");

@@ -1,13 +1,18 @@
+const apiDb = require('../../../utils/api.js').db;
 import { checkAuth, getUser } from "../../../utils/user"
 import { getAvatar } from "../../../utils/cat";
+import { signCosUrl } from "../../../utils/common";
 import config from "../../../config";
 import api from "../../../utils/cloudApi";
+import { initLayout } from "../../../utils/page";
 
 const app = getApp();
 const DbHelper = require('../../../utils/dbHelper.js');
 
 Page({
   data: {
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
     auth: false,
     loading: false,
     text_cfg: config.text,
@@ -62,6 +67,11 @@ Page({
     currentUser: null
   },
 
+
+  onLoad() {
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
+  },
   async onLoad(options) {
     if (await checkAuth(this, 2)) {
       this.setData({ auth: true });
@@ -262,7 +272,7 @@ Page({
       const skip = (this.data.pageNum - 1) * this.data.pageSize;
       
       // 按popularity降序排序（photo_count_total作为popularity的替代）
-      const { result } = await app.mpServerless.db.collection('cat')
+      const { result } = await apiDb.collection('cat')
         .find({}, { 
           fields: ['_id', 'name', 'nickname', 'photo_count_best', 'photo_count_total', 'campus', 'popularity'],
           sort: { popularity: -1 },
@@ -287,7 +297,7 @@ Page({
             const avatar = await getAvatar(cat._id, cat.photo_count_best);
             return {
               ...cat,
-              avatar: avatar && avatar.photo_id ? avatar.photo_id : '/pages/public/images/app_logo.png',
+              avatar: avatar && avatar.photo_id ? avatar.photo_id : config.LOGO_PATH,
               displayName: cat.name || cat.nickname || '未知猫猫',
               campus: cat.campus || '未知位置'
             };
@@ -295,7 +305,7 @@ Page({
             console.error(`加载猫猫${cat._id}头像失败:`, error);
             return {
               ...cat,
-              avatar: '/pages/public/images/app_logo.png',
+              avatar: config.LOGO_PATH,
               displayName: cat.name || cat.nickname || '未知猫猫',
               campus: cat.campus || '未知位置'
             };
@@ -311,8 +321,8 @@ Page({
       const nextPageNum = this.data.pageNum + 1;
 
       // 获取总猫数和照片数
-      const totalCats = await app.mpServerless.db.collection('cat').count({ deleted: { $ne: 1 } });
-      const totalPhotos = await app.mpServerless.db.collection('photo').count();
+      const totalCats = await apiDb.collection('cat').count({ deleted: { $ne: 1 } });
+      const totalPhotos = await apiDb.collection('photo').count();
 
       this.setData({ 
         cats: catsWithAvatar,
@@ -472,14 +482,25 @@ Page({
         try {
           let userInfo = {
             nickName: `用户${userId.slice(-4)}`,
-            avatarUrl: '/pages/public/images/app_logo.png'
+            avatarUrl: config.LOGO_PATH
           };
           
           try {
-            const userResult = await app.mpServerless.db.collection('user')
+            const userResult = await apiDb.collection('user')
               .findOne({ _id: userId });
             if (userResult && userResult.result && userResult.result.userInfo) {
               userInfo = userResult.result.userInfo;
+              // 【私有桶必须签名】user 表里的 avatarUrl 存的是裸 OSS URL，
+              // 桶 ACL=private，未签名直传 <image src> 会 403 AccessDenied
+              // （与 pages/manage/managers/managers.js:124 同一处理）。
+              if (userInfo.avatarUrl) {
+                try {
+                  userInfo = { ...userInfo, avatarUrl: await signCosUrl(userInfo.avatarUrl) };
+                } catch (signErr) {
+                  console.error(`用户${userId}头像签名失败，改用默认头像:`, signErr);
+                  userInfo = { ...userInfo, avatarUrl: '' };
+                }
+              }
             }
           } catch (userError) {
             console.log(`用户${userId}信息获取失败，使用默认信息`);
@@ -489,7 +510,7 @@ Page({
           uploaders.push({
             _id: userId,
             nickname: userInfo.nickName || `用户${userId.slice(-4)}`,
-            avatar: userInfo.avatarUrl || '/pages/public/images/app_logo.png',
+            avatar: userInfo.avatarUrl || config.LOGO_PATH,
             totalPhotos: userPhotos.length,
             bestPhotos: userPhotos.filter(p => p.best).length
           });
@@ -506,7 +527,7 @@ Page({
         {
           _id: 'all',
           nickname: '全部上传者',
-          avatar: '/pages/public/images/app_logo.png',
+          avatar: config.LOGO_PATH,
           totalPhotos: photos.length,
           bestPhotos: photos.filter(p => p.best).length
         },

@@ -1,3 +1,12 @@
+/**
+ * utils/badge.js —— 徽章定义、用户徽章、猫猫徽章的加载与排序
+ * ============================================================================
+ * 【职责】徽章定义、用户徽章、猫猫徽章的加载与排序。
+ * 【依赖】./api.js（db）、./common.js（signCosUrl）、./cache.js
+ * 【注意事项】徽章图片是私有桶资源，展示前必须经 signCosUrl 换签名 URL。
+ * ============================================================================
+ */
+const apiDb = require('./api.js').db;
 import { signCosUrl } from './common'
 const app = getApp();
 // 等级序
@@ -9,16 +18,16 @@ const levelOrderMap = {
 }
 
 async function loadBadgeDefMap() {
-  let { result: badgeDefMap } = await app.mpServerless.db.collection('badge_def').find({})
+  let { result: badgeDefMap } = await apiDb.collection('badge_def').find({})
   if (!badgeDefMap) {
     return;
   }
 
   // 超过100种徽章定义，需要分批获取
   if (badgeDefMap.length === 100) {
-    let count = (await app.mpServerless.db.collection('badge_def').count({})).result;
+    let count = (await apiDb.collection('badge_def').count({})).result;
     while (badgeDefMap.length < count) {
-      let tmp = (await app.mpServerless.db.collection('badge_def').find({})).result;
+      let tmp = (await apiDb.collection('badge_def').find({}, { skip: badgeDefMap.length })).result;
       badgeDefMap = badgeDefMap.concat(tmp);
     }
   }
@@ -37,7 +46,7 @@ async function loadBadgeDefMap() {
 }
 
 async function loadUserBadge(openid, badgeDefMap, options) {
-  const userBadges = (await app.mpServerless.db.collection("badge").find({
+  const userBadges = (await apiDb.collection("badge").find({
     _openid: openid,
     catId: null
   })).result;
@@ -48,10 +57,10 @@ async function loadUserBadge(openid, badgeDefMap, options) {
 }
 
 async function loadCatBadge(catId) {
-  const count = (await app.mpServerless.db.collection('badge').count({ catId: catId })).result;
+  const count = (await apiDb.collection('badge').count({ catId: catId })).result;
   let allBadges = [];
   while (allBadges.length < count) {
-    const tmp = (await app.mpServerless.db.collection('badge').find({
+    const tmp = (await apiDb.collection('badge').find({
       catId: catId,
     }, { skip: allBadges.length })).result;
     allBadges = allBadges.concat(tmp);

@@ -1,14 +1,31 @@
-// miniprogram/pages/imProcess/imProcess.js
-import { generateUUID } from "../../../utils/utils";
-import { text as text_cfg } from "../../../config";
+const apiDb = require('../../../utils/api.js').db;
+// miniprogram/pages/manage/imProcess/imProcess.js
+/**
+ * 照片批量处理（压缩 + 水印）· 管理端
+ * ============================================================================
+ * 【职责】拉取「待处理照片」列表，勾选后批量/单张触发后端处理，并展示进度与错误。
+ * 【图像压缩/水印全部在后端 unionOp.processPhoto 完成，客户端不做任何图像处理】
+ *   后端算法（供维护参考）：
+ *   - 压缩图：长边 500px，等比缩放。
+ *   - 水印图：在长边 1200px 的画布上绘制白色 sans-serif 文字，
+ *     字号 = 画布高 * 0.03，位置 x=30、y=画布高 - 字号，输出为原图尺寸。
+ *   - 水印文本：`${app_name}@${photographer || userInfo.nickName}`。
+ * 【接口契约】（后端已上线验证，unionOp 顶层传参，不要嵌套 args）
+ *   POST /api/unionOp  { unionAction:'processPhoto', photo_id: <photo 表 _id> }
+ *   → { success, result, data: { compressed, watermark, compressedKey, watermarkKey } }
+ *   compressed / watermark 是可直接使用的 OSS URL（oss.xcry.top）。
+ *   photo_id 传的是 photo 表的 _id，不是图片 URL。
+ *   仅管理员可触发；非管理员返回 HTTP 200 + result:false（msg='not a manager'）。
+ *   后端会自行回写 photo 表 4 个字段（photo_compressed / photo_compressed_id /
+ *   photo_watermark / photo_watermark_id），客户端不再写库。
+ * 【注意】
+ *   1. 批量处理按张「串行」调用，避免并发打爆后端；用户可中途点「停止」在下一张前中断。
+ *   2. 删除单张照片仍走 api.managePhoto({ type: 'delete' })。
+ * ============================================================================
+ */
 import { checkAuth, fillUserInfo } from "../../../utils/user";
 import api from "../../../utils/cloudApi";
-import { uploadFile, signCosUrl } from "../../../utils/common"
-import drawUtils from "../../../utils/draw";
-
-const canvasMax = 1200; // 正方形画布的尺寸px
-const compressLength = 500; // 压缩图的最长边大小
-const app = getApp();
+import { signCosUrl } from "../../../utils/common";
 
 Page({
 
@@ -16,26 +33,21 @@ Page({
    * 页面的初始数据
    */
   data: {
-    phase: 0,
+    phase: 0, // 0 未开始 / 1 后端处理中 / 2 已完成
     phase2str: [
       '未开始',
-      '获取原图',
-      '生成压缩图',
-      '生成水印图',
-      '上传压缩图',
-      '上传水印图',
-      '写入数据库'
+      '后端处理中',
+      '已完成'
     ],
-    images_path: {},
-    now: 0, // 当前状态
+    now: 0, // 当前已处理数量
+    total: 0, // 待处理总数
     processing: false,
     errMsg: "",
-    photoList: [], // 新增：待处理照片列表
-    selectedCount: 0, // 新增：选中照片数量
-    allSelected: false, // 新增：是否全选
+    errStack: "",
+    photoList: [], // 待处理照片列表
+    selectedCount: 0, // 选中照片数量
+    allSelected: false, // 是否全选
   },
-
-  jsData: {},
 
   /**
    * 生命周期函数--监听页面加载
@@ -68,33 +80,33 @@ Page({
     });
   },
 
-  // 修改：加载所有需要处理的照片到列表
+  // 加载所有需要处理的照片到列表
   async loadProcess() {
     try {
       wx.showLoading({
         title: '加载中...',
       });
-      
-      const { result: total } = await app.mpServerless.db.collection('photo').count({
+
+      const { result: total } = await apiDb.collection('photo').count({
         photo_compressed: { $in: [undefined, ''] },
         verified: true
       });
-      
+
       // 获取所有需要处理的照片
-      const { result: photos } = await app.mpServerless.db.collection('photo').find({
+      const { result: photos } = await apiDb.collection('photo').find({
         photo_compressed: { $in: [undefined, ''] },
         verified: true
       });
-      
+
       // 填充用户信息
       await fillUserInfo(photos, "_openid", "userInfo");
-      
+
       // 为每张照片添加选中状态，并生成签名URL和格式化日期
       const photoList = [];
       for (let photo of photos) {
         // 生成签名URL用于显示缩略图
         const signedPhotoId = await signCosUrl(photo.photo_id);
-        
+
         // 格式化日期
         let formattedDate = '未知时间';
         try {
@@ -105,7 +117,7 @@ Page({
         } catch (error) {
           console.error('日期格式化错误:', error);
         }
-        
+
         photoList.push({
           ...photo,
           checked: false,
@@ -113,7 +125,7 @@ Page({
           formattedDate: formattedDate // 格式化后的日期
         });
       }
-      
+
       console.log("imProcess loadProcess:", total, photoList);
       this.setData({
         total: total,
@@ -123,7 +135,7 @@ Page({
         selectedCount: 0,
         allSelected: false
       });
-      
+
       wx.hideLoading();
     } catch (error) {
       console.error('加载照片列表失败:', error);
@@ -135,63 +147,48 @@ Page({
     }
   },
 
-  // 修改：点击处理按钮
-  clickProcessBtn: async function (e) {
-    const { test } = e.currentTarget.dataset;
-    
-    // 如果没有选中照片，提示用户
-    if (this.data.selectedCount === 0 && !test) {
+  // 点击处理按钮：未处理时开始，处理中则请求停止（在下一张前中断）
+  clickProcessBtn: async function () {
+    if (this.data.processing) {
+      // 用户点击停止：置 processing=false，处理循环会在下一张前退出
+      this.setData({ processing: false });
+      return;
+    }
+
+    if (this.data.selectedCount === 0) {
       wx.showToast({
         title: '请先选择照片',
         icon: 'none'
       });
       return;
     }
-    
-    this.data.processing = !this.data.processing;
-    this.setData({
-      processing: this.data.processing
-    });
-    
-    // 开始处理
-    if (this.data.processing) {
-      try {
-        this.setData({
-          errMsg: "",
-        })
-        await this.beginProcess(test);
-      } catch (error) {
-        console.error(error);
-        await wx.showModal({
-          title: '出错了',
-          content: error.toString(),
-          showCancel: false
-        });
-        this.setData({
-          errMsg: JSON.stringify(error.message) || "-",
-          errStack: error.stack?.toString() || "-",
-        });
-        await this.loadProcess();
-        wx.hideLoading();
-      }
-      return;
+
+    this.setData({ processing: true, errMsg: "" });
+    try {
+      await this.beginProcess();
+    } catch (error) {
+      console.error(error);
+      await wx.showModal({
+        title: '出错了',
+        content: error.toString(),
+        showCancel: false
+      });
+      this.setData({
+        errMsg: JSON.stringify(error.message) || "-",
+        errStack: error.stack?.toString() || "-",
+      });
+      await this.loadProcess();
+      wx.hideLoading();
+    } finally {
+      this.setData({ processing: false });
     }
-    
-    // 停止处理
-    wx.showLoading({
-      title: '等待完成当前...',
-      mask: true
-    });
   },
 
-  // 修改：开始处理选中的照片
-  beginProcess: async function (isTesting) {
+  // 开始处理选中的照片（逐张串行调用后端，避免并发打爆）
+  beginProcess: async function () {
     // 获取选中的照片
-    const selectedPhotos = this.data.photoList.filter(photo => photo.checked);
-    
-    // 测试模式使用第一张照片
-    const photosToProcess = isTesting ? this.data.photoList.slice(0, 1) : selectedPhotos;
-    
+    const photosToProcess = this.data.photoList.filter(photo => photo.checked);
+
     if (photosToProcess.length === 0) {
       wx.showModal({
         title: '提示',
@@ -203,215 +200,87 @@ Page({
       });
       return;
     }
-    
-    // 初始化canvas
-    console.log("begin");
-    const initCanvas = await drawUtils.initCanvas('#bigPhoto');
-    console.log("passsss");
-    this.jsData.gCtx = initCanvas.ctx;
-    this.jsData.gCanvas = initCanvas.canvas;
-    
-    // 处理每张照片
+
+    this.setData({ phase: 1, now: 0 }); // 后端处理中
+
+    // 处理每张照片（串行）
+    // 【为什么单张失败不中断整批】旧实现里 processOne 抛错会直接跳出整个循环：
+    // 一张坏图（原图缺失/签名失败）就让后面所有照片都不处理，用户只看到「出错了」，
+    // 不知道到底成功了几张。现在逐张兜错、统计成功/失败，最后统一汇报。
+    let okCount = 0;
+    const failures = [];
     for (let i = 0; i < photosToProcess.length; i++) {
       if (!this.data.processing) break; // 如果用户点击停止，则中断
-      
+
       const photo = photosToProcess[i];
-      await this.processOne(photo, isTesting);
-      
+      try {
+        await this.processOne(photo);
+        okCount += 1;
+      } catch (error) {
+        console.error('[imProcess] 处理失败', photo && photo._id, error);
+        failures.push({ id: photo && photo._id, msg: (error && error.message) || String(error) });
+      }
+
       // 更新进度
       this.setData({
         now: this.data.now + 1
       });
     }
-    
+
     this.setData({
+      phase: 2, // 已完成
       processing: false
     });
-    
+
     // 重新加载照片列表
     await this.loadProcess();
     wx.hideLoading();
+
+    if (failures.length) {
+      await wx.showModal({
+        title: '部分照片处理失败',
+        showCancel: false,
+        content: '成功 ' + okCount + ' 张，失败 ' + failures.length + ' 张。',
+        // 第一条失败原因单独提示，便于直接定位（失败明细已打到控制台）
+      });
+      wx.showToast({ icon: 'none', title: '失败原因：' + failures[0].msg, duration: 3000 });
+    } else if (okCount) {
+      wx.showToast({ title: '处理完成 ' + okCount + ' 张', icon: 'success' });
+    }
   },
 
   setPhase: function (phase) {
     this.setData({ phase: phase });
   },
 
-  // 处理一张图片
-  processOne: async function (photoInfo, isTesting) {
-    photoInfo.mdate = new Date(photoInfo.mdate).toJSON();
-    
-    // 获取原图
-    this.setPhase(1);
-    if (photoInfo.userInfo === undefined) {
-      photoInfo.userInfo = { nickName: '猫友' }
-    }
-    
-    try {
-      const rawSrc = await signCosUrl(photoInfo.photo_id);
-      // EMAS 外链可能含中文目录，getImageInfo/downloadFile 要求 URL 先编码
-      let safeSrc = rawSrc;
-      try { safeSrc = encodeURI(decodeURI(rawSrc)); } catch (e) { safeSrc = encodeURI(rawSrc); }
-      var photoObj = await wx.getImageInfo({
-        src: safeSrc,
-      });
-    } catch (error) {
-      console.error(error);
-      const err = new Error(`error: ${JSON.stringify(error)}, srcTried: ${encodeURI(String(photoInfo.photo_id))}, photoInfo: ${JSON.stringify(photoInfo)}`);
-      err.name = "下载图片失败(v2)";
-      throw err;
-    }
-    
-    // 处理旋转问题
-    if (photoObj.orientation == 'right' || photoObj.orientation == 'left') {
-      [photoObj.width, photoObj.height] = [photoObj.height, photoObj.width];
-    }
-    
-    console.log("imProcess processOne:", photoObj);
-    this.setData({
-      origin: photoObj
-    });
-    
-    // 压缩图
-    this.setPhase(2);
-    const compressPath = await this.compress(photoObj);
-    console.log("compressPath", compressPath);
-    
-    // 水印图
-    this.setPhase(3);
-    const watermarkPath = await this.watermark(photoObj, photoInfo);
-    console.log("watermarkPath", watermarkPath);
-    
-    // 是否只是测试运行
-    if (isTesting) {
-      await wx.showModal({
-        title: '试运行完成',
-        content: '请点击缩略图和水印图，查看是否正常',
-        showCancel: false,
-      })
-      return;
-    }
-    
-    // 上传压缩图
-    this.setPhase(4);
-    const compressCloudPath = `/compressed/${generateUUID()}.jpg`;
-    const compressCloudID = await this.uploadImage(compressPath, compressCloudPath);
-    console.log("compressCloudID", compressCloudID);
-    
-    // 上传水印图
-    this.setPhase(5);
-    const watermarkCloudPath = `/watermark/${generateUUID()}.jpg`;
-    const watermarkCloud = await this.uploadImage(watermarkPath, watermarkCloudPath);
-    console.log("watermarkCloud", watermarkCloud);
-    
-    // 更新数据库
-    this.setPhase(6);
-    await this.updataDatabase(photoInfo, compressCloudID, watermarkCloud);
-    
-    // 结束
-    this.setPhase(0);
-  },
+  // 处理一张图片：交给后端 processPhoto（压缩 + 水印 + 写库一次完成）
+  processOne: async function (photoInfo) {
+    this.setPhase(1); // 后端处理中
 
-  // 获取压缩图
-  compress: async function (oriPhotoObj) {
-    const origin = oriPhotoObj;
+    // 后端契约：body { unionAction:'processPhoto', photo_id: photo 表 _id }（顶层传参）
+    // 返回 { success, result, data:{ compressed, watermark, compressedKey, watermarkKey, ... } }
+    const res = await api.processPhoto({ photo_id: photoInfo._id });
 
-    const draw_rate = Math.max(origin.width, origin.height) / canvasMax;
-    console.log(origin, draw_rate);
-    const draw_width = Math.floor(origin.width / draw_rate);
-    const draw_height = Math.floor(origin.height / draw_rate);
-    console.log("draw size", draw_width, draw_height);
-
-    // 画上图片
-    const { gCtx, gCanvas } = this.jsData;
-    await drawUtils.drawImage(gCtx, gCanvas, origin.path, 0, 0, draw_width, draw_height);
-
-    // 压缩后的大小
-    var comp_width, comp_height;
-    if (origin.width > origin.height) {
-      comp_width = compressLength;
-      comp_height = Math.floor(origin.height / origin.width * compressLength);
-    } else {
-      comp_height = compressLength;
-      comp_width = Math.floor(origin.width / origin.height * compressLength);
+    // result === false 是业务失败（如非管理员），HTTP 仍是 200，需单独识别
+    if (res && res.result === false) {
+      const msg = res.msg || '未知原因';
+      throw new Error(msg === 'not a manager' ? '仅管理员可执行照片处理' : ('后端拒绝处理：' + msg));
     }
 
-    console.log("comp size", comp_width, comp_height);
+    const data = (res && res.data) || {};
 
-    // 变成图片显示
-    var path = await drawUtils.getTempPath(gCtx, gCanvas, {
-      width: draw_width,
-      height: draw_height,
-      destWidth: comp_width,
-      destHeight: comp_height,
-      fileType: "jpg",
-    });
+    // 后端应返回压缩图/水印图 OSS URL；缺失则视为后端异常，不静默
+    if (!data.compressed && !data.watermark) {
+      throw new Error('后端未返回压缩图/水印图地址：' + JSON.stringify(res));
+    }
 
-    this.setData({
-      "images_path.compressed": path
-    });
-
-    return path;
+    console.log("imProcess processOne done:", photoInfo._id, data);
+    this.setPhase(2); // 已完成
+    return data;
   },
 
-  // 打水印
-  watermark: async function (oriPhotoObj, photoInfo) {
-    const origin = oriPhotoObj;
-
-    const draw_rate = Math.max(origin.width, origin.height) / canvasMax;
-    const draw_width = Math.round(origin.width / draw_rate);
-    const draw_height = Math.round(origin.height / draw_rate);
-
-    // 写上水印
-    const { gCtx, gCanvas } = this.jsData;
-    const text = `${text_cfg.app_name}@${photoInfo.photographer || photoInfo.userInfo.nickName}`
-    await drawUtils.writeWatermake(gCtx, gCanvas, {
-      fontSize: draw_height * 0.03,
-      fillStyle: "white",
-      text: text,
-      x: 30,
-      y: draw_height - (draw_height * 0.03)
-    });
-
-    // 变成图片显示
-    var path = await drawUtils.getTempPath(gCtx, gCanvas, {
-      width: draw_width,
-      height: draw_height,
-      destWidth: origin.width,
-      destHeight: origin.height,
-      fileType: "jpg",
-    });
-
-    this.setData({
-      "images_path.watermark": path
-    });
-
-    return path;
-  },
-
-  // 上传图片
-  uploadImage: async function (filePath, cloudPath) {
-    const res = await uploadFile({
-      filePath: filePath,
-      cloudPath: cloudPath,
-    })
-    return res;
-  },
-
-  // 更新数据库
-  updataDatabase: async function (oriPhoto, compressFile, watermarkCloud) {
-    await api.managePhoto({
-      photo: oriPhoto,
-      type: 'setProcess',
-      compressed: compressFile.fileUrl,
-      compressedId: compressFile.fileId,
-      watermark: watermarkCloud.fileUrl,
-      watermarkId: watermarkCloud.fileId,
-    })
-  },
-
-  // 新增：全选/取消全选
-  toggleSelectAll: function() {
+  // 全选/取消全选
+  toggleSelectAll: function () {
     const allSelected = !this.data.allSelected;
     const photoList = this.data.photoList.map(photo => {
       return {
@@ -419,7 +288,7 @@ Page({
         checked: allSelected
       };
     });
-    
+
     this.setData({
       photoList: photoList,
       allSelected: allSelected,
@@ -427,15 +296,15 @@ Page({
     });
   },
 
-  // 新增：切换单张照片的选中状态
-  togglePhotoSelect: function(e) {
+  // 切换单张照片的选中状态
+  togglePhotoSelect: function (e) {
     const index = e.currentTarget.dataset.index;
     const photoList = this.data.photoList;
     photoList[index].checked = !photoList[index].checked;
-    
+
     const selectedCount = photoList.filter(photo => photo.checked).length;
     const allSelected = selectedCount === photoList.length;
-    
+
     this.setData({
       photoList: photoList,
       selectedCount: selectedCount,
@@ -443,8 +312,8 @@ Page({
     });
   },
 
-  // 新增：预览照片
-  previewPhoto: function(e) {
+  // 预览照片
+  previewPhoto: function (e) {
     const index = e.currentTarget.dataset.index;
     const photo = this.data.photoList[index];
 
@@ -460,32 +329,32 @@ Page({
     });
   },
 
-  // 修改：删除单张照片后重新加载列表
-  deletePhoto: async function(e) {
+  // 删除单张照片后重新加载列表
+  deletePhoto: async function (e) {
     const index = e.currentTarget.dataset.index;
     const photo = this.data.photoList[index];
-    
+
     const res = await wx.showModal({
       title: '确认删除',
       content: '确定要删除这张照片吗？此操作不可撤销。',
     });
-    
+
     if (res.confirm) {
       try {
         wx.showLoading({
           title: '删除中...',
         });
-        
+
         // 从数据库删除照片
         await api.managePhoto({
           photo: photo,
           type: 'delete'
         });
-        
+
         wx.showToast({
           title: '删除成功',
         });
-        
+
         // 重新加载照片列表
         await this.loadProcess();
       } catch (error) {
@@ -499,27 +368,23 @@ Page({
     }
   },
 
-  // 修改：处理单张照片后重新加载列表
-  processSinglePhoto: async function(e) {
+  // 处理单张照片后重新加载列表
+  processSinglePhoto: async function (e) {
     const index = e.currentTarget.dataset.index;
     const photo = this.data.photoList[index];
-    
+
     this.setData({
-      processing: true
+      processing: true,
+      errMsg: ""
     });
-    
+
     try {
-      // 初始化canvas
-      const initCanvas = await drawUtils.initCanvas('#bigPhoto');
-      this.jsData.gCtx = initCanvas.ctx;
-      this.jsData.gCanvas = initCanvas.canvas;
-      
-      await this.processOne(photo, false);
-      
+      await this.processOne(photo);
+
       wx.showToast({
         title: '处理完成',
       });
-      
+
       // 重新加载照片列表
       await this.loadProcess();
     } catch (error) {
@@ -527,21 +392,12 @@ Page({
       this.setData({
         processing: false
       });
-      wx.showToast({
+      wx.showModal({
         title: '处理失败',
-        icon: 'error'
+        content: error.toString(),
+        showCancel: false
       });
     }
-  },
-
-  preview: function (e) {
-    const src = e.currentTarget.dataset.src;
-    if (!src) {
-      return false;
-    }
-    wx.previewImage({
-      urls: [src],
-    });
   },
 
   copyText: function (e) {

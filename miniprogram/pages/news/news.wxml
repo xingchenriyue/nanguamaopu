@@ -1,3 +1,6 @@
+<!-- 顶部毛玻璃导航栏（LOGO + 标题 + 副标题） -->
+<glass-nav title="猫抓板" subtitle="校园里的新鲜事都在这"></glass-nav>
+
 <view class='loading' wx:if='{{updateRequest}}'>
   <image src='/pages/public/images/system/loading.gif'></image>
 </view>

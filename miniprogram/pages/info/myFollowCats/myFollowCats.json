@@ -1,4 +1,8 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "我关注的猫猫"
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationBarTitleText": "我关注的猫猫",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

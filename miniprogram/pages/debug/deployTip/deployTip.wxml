@@ -1,12 +1,19 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="部署指引" back="{{true}}" holder="{{false}}"></glass-nav>
 <!--pages/debug/deployTip/deployTip.wxml-->
-<scroll-view scroll-y="1">
-  <view class="h1">部署检查&指引</view>
+<scroll-view class="deploy-scroll" scroll-y="1">
+  <!-- 顶部留白：让开毛玻璃顶栏，滚动时内容从其下方穿过 -->
+  <view style="height: {{navTotalHeight}}px;"></view>
+  <view class="h1">部署检查 & 指引</view>
+  <view class="sub">按 config.js + 一个 LOGO 完成配置后，逐项自检上线前置条件</view>
+  <button class="recheck" type="primary" size="mini" loading="{{checking}}" bindtap="onTapRecheck">{{checking ? '检查中...' : '重新检查'}}</button>
 
   <view class="check" wx:for="{{check_list}}" wx:for-index="key" wx:key="key">
     <view class="line">
       <view class="title">{{key}} {{item.title}}</view>
       <view class="status {{status_to_css[item.status]}}">{{status_to_text[item.status]}}</view>
     </view>
-    <view class="tip"><text>提示：{{item.tip}}<text class="highlight">{{item.addition}}</text></text></view>
+    <view class="tip"><text>提示：{{item.tip}}<text class="highlight {{status_to_css[item.status]}}" user-select>{{item.addition}}</text></text></view>
   </view>
 </scroll-view>

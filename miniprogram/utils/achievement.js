@@ -1,16 +1,28 @@
+/**
+ * utils/achievement.js —— 成就解锁与进度追踪
+ * ============================================================================
+ * 【职责】成就解锁与进度追踪。
+ * 【依赖】./api.js（db）、./cache.js、./page.js
+ * 【注意事项】解锁/计数写入依赖 unionOp 的 curdOp；查询条件含 _openid 时由 db.js 规范化为当前用户。
+ *   —— 自建后端下 curdOp 会丢弃客户端传来的 openid，只写服务端注入的 _openid，
+ *      因此本文件的读写一律使用 _openid（db.js 会把值强制替换成 JWT 里的真实 openid）。
+ * ============================================================================
+ */
+const apiDb = require('./api.js').db;
 // 用户自动成就系统（铜/银/金三级版）
-// 数据库集合：achievement  { openid, key, create_date }
+// 数据库集合：achievement  { _openid, key, create_date }
 // key 格式：{类目id}_{数量门槛}，如 photo_10
 // 用户主页展示位存在 user 集合的 showcase_achievements 字段（最多3个key）
 import { getUser } from "./user";
 import api from "./cloudApi";
+import { normalizeWriteResult } from "./common";
 const app = getApp();
 
 // 级别定义
 const TIERS = [
-  { tier: 1, name: '铜牌', short: '铜', color: '#c88a4b' },
-  { tier: 2, name: '银牌', short: '银', color: '#9aa5b1' },
-  { tier: 3, name: '金牌', short: '金', color: '#e6a823' },
+  { tier: 1, name: '铜牌', short: '铜' },
+  { tier: 2, name: '银牌', short: '银' },
+  { tier: 3, name: '金牌', short: '金' },
 ];
 
 // 成就类目（顺序即展示顺序），tiers 为铜/银/金的数量门槛
@@ -49,7 +61,6 @@ function _defOfKey(key) {
     tier: tierIdx + 1,
     tierName: TIERS[tierIdx].name,
     tierShort: TIERS[tierIdx].short,
-    tierColor: TIERS[tierIdx].color,
     name: `${cat.name}·${TIERS[tierIdx].name}`,
     desc: cat.desc.replace('{}', threshold),
     icon: cat.icon,
@@ -69,7 +80,7 @@ async function _getUnlocked() {
     if (!user || !user.openid) {
       return _unlockedCache;
     }
-    const { result } = await app.mpServerless.db.collection('achievement').find({ openid: user.openid });
+    const { result } = await apiDb.collection('achievement').find({ _openid: user.openid });
     (result || []).forEach(r => {
       const mapped = LEGACY_KEY_MAP[r.key] || r.key;
       _unlockedCache.add(mapped);
@@ -101,12 +112,16 @@ async function unlock(key) {
       operation: "add",
       collection: "achievement",
       data: {
-        openid: user.openid,
+        _openid: user.openid,
         key: key,
       }
     });
-    // curdOp 失败时不抛异常、只返回错误对象，必须检查 insertedId 才算真的写入成功
-    if (!res || !res.insertedId) {
+    // curdOp 失败时不抛异常、只返回错误对象，必须检查 insertedId 才算真的写入成功。
+    // 【注意层级】后端返回 { result: { insertedId, acknowledged }, ok: true }，
+    // insertedId 在 res.result.insertedId，直接读 res.insertedId 恒为 undefined
+    // → 成就永远判定为「同步失败」（实际已写入）。
+    const wr = normalizeWriteResult(res);
+    if (!wr.insertedId) {
       unlocked.delete(key);
       console.warn('[成就] 写入云端失败（检查：1. EMAS是否已建achievement集合 2. unionOp云函数是否已更新部署）', res);
       wx.showToast({
@@ -168,7 +183,7 @@ async function trackAddPhoto() {
     if (!user || !user.openid) {
       return;
     }
-    const { result: count } = await app.mpServerless.db.collection('photo').count({ _openid: user.openid });
+    const { result: count } = await apiDb.collection('photo').count({ _openid: user.openid });
     await _trackCount('photo', count);
   } catch (e) {
     console.log('trackAddPhoto fail', e);
@@ -182,7 +197,7 @@ async function trackComment() {
     if (!user || !user.openid) {
       return;
     }
-    const { result: count } = await app.mpServerless.db.collection('comment').count({ user_openid: user.openid });
+    const { result: count } = await apiDb.collection('comment').count({ user_openid: user.openid });
     await _trackCount('comment', count);
   } catch (e) {
     console.log('trackComment fail', e);
@@ -196,7 +211,7 @@ async function trackLike() {
     if (!user || !user.openid) {
       return;
     }
-    const { result: count } = await app.mpServerless.db.collection('inter').count({ type: 10000, uid: user.openid });
+    const { result: count } = await apiDb.collection('inter').count({ type: 10000, uid: user.openid });
     await _trackCount('like', count);
   } catch (e) {
     console.log('trackLike fail', e);
@@ -213,7 +228,7 @@ async function trackFollow(followCount) {
 }
 
 // 获取全部成就及解锁状态（成就页用）
-// 返回：[{ id, name, icon, unit, desc, tiers: [{tier, tierName, tierColor, threshold, key, unlocked, unlock_time}] }]
+// 返回：[{ id, name, icon, unit, desc, tiers: [{tier, tierName, threshold, key, unlocked, unlock_time}] }]
 async function getMyAchievements() {
   const unlocked = await _getUnlocked();
   // 补充解锁时间
@@ -221,7 +236,7 @@ async function getMyAchievements() {
   try {
     const user = await getUser();
     if (user && user.openid) {
-      const { result } = await app.mpServerless.db.collection('achievement').find({ openid: user.openid });
+      const { result } = await apiDb.collection('achievement').find({ _openid: user.openid });
       (result || []).forEach(r => {
         const mapped = LEGACY_KEY_MAP[r.key] || r.key;
         if (!timeMap[mapped]) {
@@ -244,7 +259,6 @@ async function getMyAchievements() {
         tier: i + 1,
         tierName: TIERS[i].name,
         tierShort: TIERS[i].short,
-        tierColor: TIERS[i].color,
         threshold: threshold,
         desc: cat.desc.replace('{}', threshold),
         unlocked: unlocked.has(key),
@@ -265,7 +279,6 @@ async function getUnlockedList() {
           key: t.key,
           name: `${cat.name}·${t.tierName}`,
           tier: t.tier,
-          tierColor: t.tierColor,
           icon: cat.icon,
           desc: t.desc,
           unlock_time: t.unlock_time,
@@ -279,7 +292,7 @@ async function getUnlockedList() {
 // 读取用户的主页展示位（key 数组，最多3个）
 async function getShowcase(openid) {
   try {
-    const { result: user } = await app.mpServerless.db.collection('user').findOne({ openid: openid });
+    const { result: user } = await apiDb.collection('user').findOne({ openid: openid });
     if (!user || !user.showcase_achievements) return null;
     return user.showcase_achievements.map(k => _defOfKey(k)).filter(Boolean);
   } catch (e) {

@@ -252,7 +252,7 @@ picker, input {
   margin: 0;
   border-radius: 20rpx;
   background: var(--color-primary);
-  color: var(--color-primary-text);
+  color: var(--color-text-onPrimary);
   border: none;
   line-height: 1.2;
   flex-shrink: 0;

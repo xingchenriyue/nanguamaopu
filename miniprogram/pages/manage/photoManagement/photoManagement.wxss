@@ -20,7 +20,8 @@
 /* 首页导航栏 */
 .photo-header {
   position: sticky;
-  top: 0;
+  /* 吸顶位置避开毛玻璃顶栏（--nav-h 由页面注入 navTotalHeight） */
+  top: var(--nav-h, 0px);
   z-index: 100;
   background: #ffffff;
   padding: 0 24rpx;
@@ -175,7 +176,8 @@
 /* 首页位置筛选栏 */
 .filter-section {
   position: sticky;
-  top: 88rpx; /* 导航栏高度 */
+  /* 吸在毛玻璃顶栏下方（--nav-h 由页面注入 navTotalHeight） */
+  top: var(--nav-h, 0px);
   z-index: 98;
   background: #ffffff;
   padding: 0;
@@ -365,7 +367,7 @@
 .best-count {
   font-size: 22rpx;
   color: #666;
-  background: #fff8e1;
+  background: #E8EFF7;
   padding: 4rpx 12rpx;
   border-radius: 12rpx;
 }
@@ -386,7 +388,8 @@
 /* 照片页面筛选栏 */
 .filter-section {
   position: sticky;
-  top: 88rpx; /* photo-header 的高度 */
+  /* 吸在毛玻璃顶栏 + photo-header 下方 */
+  top: calc(var(--nav-h, 0px) + 88rpx);
   z-index: 99;
   background: #ffffff;
   padding: 0;

@@ -1,7 +1,10 @@
 {
   "usingComponents": {
     "no-auth": "/components/noAuth/noAuth",
-    "search-cat": "/components/searchCat/searchCat"
+    "search-cat": "/components/searchCat/searchCat",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
-  "navigationBarTitleText": "管理审核"
+  "navigationBarTitleText": "照片审核",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

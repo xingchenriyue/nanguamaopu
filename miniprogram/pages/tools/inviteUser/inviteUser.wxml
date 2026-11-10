@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="特邀用户管理" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/tools/inviteUser/inviteUser.wxml-->
 <block wx:if="{{!isManager && !invited}}">
   <view class="tip">{{text_cfg.inviteUser.default_tip}}</view>

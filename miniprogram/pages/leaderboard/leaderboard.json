@@ -3,8 +3,11 @@
     "heart": "/packages/heart-button/heart",
     "photoRank": "/components/photoRank/photoRank",
     "badgeRank": "/components/badgeRank/badgeRank",
-    "achievementRank": "/components/achievementRank/achievementRank"
+    "achievementRank": "/components/achievementRank/achievementRank",
+    "glass-nav": "/components/glass-nav/glass-nav"
   },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
   "disableScroll": true,
   "navigationBarTitleText": "榜单"
 }

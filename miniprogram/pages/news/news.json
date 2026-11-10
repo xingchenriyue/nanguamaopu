@@ -1,5 +1,9 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "猫抓板",
   "enablePullDownRefresh": true
 }

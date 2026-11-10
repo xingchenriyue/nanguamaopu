@@ -1,3 +1,4 @@
+const apiDb = require('../../utils/api.js').db;
 import {
   getCatItemMulti
 } from "../../utils/cat";
@@ -8,7 +9,7 @@ import {
 } from "../../utils/inter";
 import { getDateWithDiffHours, formatDate } from "../../utils/utils";
 import config from "../../config";
-import { showTab } from "../../utils/page";
+import { showTab, initLayout } from "../../utils/page";
 import { signCosUrl } from "../../utils/common";
 
 const app = getApp();
@@ -17,13 +18,7 @@ const share_text = config.text.app_name + ' - ' + config.text.genealogy.share_ti
 
 Page({
   //不需要渲染到wxml的数据存储在jsData中
-  jsData: {
-    columnsHeight: [0, 0],
-    isLoading: false,
-    like_mutex: false,
-    canReverse: false,
-    text_cfg: config.text
-  },
+  //jsData 已于 onLoad 中挂到页面实例（this.jsData），不再是 Page 顶层选项
   data: {
     columns: [
       [],
@@ -31,7 +26,17 @@ Page({
     ],
     tempPics: [],
     loadnomore: false,
-    threads: ["徽章收集", "照片点赞", "拍照月榜", "成就榜"],
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 底部悬浮 dock 占位高度（由 initLayout 注入）
+    tabBarHeight: 0,
+    // 导航条下方可用高度（由 initLayout 注入）
+    contentHeight: 0,
+    // 毛玻璃顶栏带高度（由 initLayout 注入）
+    navBandHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
+    threads: ["徽章榜", "照片点赞", "拍照月榜", "成就榜"],
     threadsActive: 1,
     filters: [{
       name: "周精选",
@@ -153,7 +158,7 @@ Page({
     const curCount = this.data.columns[0].length + this.data.columns[1].length;
     const timeRange = this.getTimeRange();
     const oneMonth = getDateWithDiffHours(-timeRange);
-    var { result: photos } = await app.mpServerless.db.collection('photo').find({
+    var { result: photos } = await apiDb.collection('photo').find({
       $or: [
         { mdate: { $gte: oneMonth } },
         { mdate: { $gte: oneMonth.toISOString() } }
@@ -203,6 +208,17 @@ Page({
     return photos.filter(p => !m[p._id]);
   },
   onLoad: function () {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      columnsHeight: [0, 0],
+      isLoading: false,
+      like_mutex: false,
+      canReverse: false,
+      text_cfg: config.text
+    };
+
     this.loadData();
     this.getHeights();
   },

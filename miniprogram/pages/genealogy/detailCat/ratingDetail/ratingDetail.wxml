@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="评分详情" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/genealogy/detailCat/ratingDetail/ratingDetail.wxml-->
 <view class="bd-block">
   <view class="bd-title">{{cat.name}}（共{{cat.rating.count || 0}}人参评）</view>

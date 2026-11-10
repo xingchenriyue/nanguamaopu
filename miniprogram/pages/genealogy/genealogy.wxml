@@ -1,6 +1,13 @@
 <!--miniprogram/pages/genealogy/genealogy.wxml-->
 
-<view id='search' class='{{filters_show_shadow? "shadow": ""}}' style='height: {{heights.filters}}px'>
+<!--
+  顶部毛玻璃导航栏（LOGO + 标题 + 副标题）
+  holder="{{false}}"：不占位 —— 让下方 scroll-view 的视口顶边落在屏幕 0，
+  这样卡片滚动时能从毛玻璃顶栏「下方穿过」，backdrop-filter 背后才有内容可模糊。
+-->
+<glass-nav title="南瓜猫谱" subtitle="拍照记录校园内猫猫的成长轨迹" holder="{{false}}"></glass-nav>
+
+<view id='search' class='{{filters_show_shadow? "shadow": ""}}' style='height: {{heights.filters}}px; top: {{navTotalHeight}}px;'>
   <view class='input-block'>
     <view class='input-icon iconfont icon-search gray'></view>
     <input class='name' placeholder='{{text_cfg.genealogy.search_tip}}' placeholder-class='searchPlaceholderStyle' value='{{filters_input}}' maxlength='20' confirm-type='search' bindinput='fSearchInput' bindconfirm='fSearch'></input>
@@ -18,7 +25,7 @@
 </view>
 
 <!-- 点击过滤按钮出来的块 -->
-<view id='filter-block' style='height: {{heights.windowHeight - heights.filters}}px;' catchtouchmove="voidMove" hidden='{{!filters_show}}' bindtap='fHide'>
+<view id='filter-block' style='height: {{contentHeight - heights.filters}}px; top: {{navTotalHeight + heights.filters}}px;' catchtouchmove="voidMove" hidden='{{!filters_show}}' bindtap='fHide'>
   <!-- filter选择部分 -->
   <view class='filters' catchtap='voidMove'>
     <scroll-view class='f-column f-column-1 main' scroll-y='1'>
@@ -47,7 +54,20 @@
   </view>
 </view>
 
-<scroll-view enable-flex='1' class='cards' style='height: {{heights.windowHeight - heights.filters}}px;' scroll-y='true' enable-back-to-top='true' bindscrolltolower='onReachBottom' bindscroll='fScroll' lower-threshold='{{main_lower_threshold}}' scroll-top='{{targetScrollTop}}' scroll-with-animation='true'>
+<!--
+  高度用 CSS 的 100%（= page 全屏高，custom 导航下即整个屏幕），
+  不用 inline screenHeight —— 因为 enable-flex="1" 需要容器高度由 flex 上下文决定，
+  写死高度会让 flex 子项被压缩、滚动区与视口错位。
+-->
+<scroll-view enable-flex='1' class='cards' scroll-y='true' enable-back-to-top='true' bindscrolltolower='onReachBottom' bindscroll='fScroll' lower-threshold='{{main_lower_threshold}}' scroll-top='{{targetScrollTop}}' scroll-with-animation='true'>
+  <!--
+    顶部留白：让开毛玻璃顶栏（navTotalHeight）与悬浮的毛玻璃搜索栏（heights.filters）。
+    滚动后卡片会从这两层玻璃下方掠过，产生真实毛玻璃。
+    注意：必须 flex-shrink:0 —— .cards 是 flex 列容器，
+    否则这个留白会被 flex 压缩，导致滚动区与视口错位、滑不回顶部。
+  -->
+  <view class="cards-top-spacer" style='height: {{navTotalHeight + heights.filters}}px;'></view>
+
   <!-- 校区外显筛选 -->
   <scroll-view class="h-filter-list" scroll-x="1" wx:if="{{filters[0].category.length > 1}}">
     <view class='h-filter-item {{item.all_active? "active": ""}}'  bindtap='fClickCampus' data-index='{{index}}' data-filters_sub="0"
@@ -165,7 +185,7 @@
       title="{{newsList[0].title || ''}}"
       content="{{newsList[0].mainContent || ''}}"
       newsClass="{{newsList[0].class || ''}}"
-      user="{{newsList[0].userNickname}}"
+      user="{{newsList[0].userNickname || ''}}"
       time="{{newsList[0].ddate || ''}}"
       imagePath="{{ newsImage }}"
       bind:cancelEvent="_cancelEvent"  

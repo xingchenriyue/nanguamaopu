@@ -1,11 +1,12 @@
+const apiDb = require('../../utils/api.js').db;
 // miniprogram/pages/info/info.js
 import { isManagerAsync } from "../../utils/user";
-import { text as text_cfg, mpcode_img } from "../../config";
-import { showTab } from "../../utils/page";
+import { text as text_cfg, mpcode_img, LOGO_PATH } from "../../config";
+import { showTab, initLayout } from "../../utils/page";
 
 const share_text = text_cfg.app_name + ' - ' + text_cfg.info.share_tip;
 
-const logo_img = "/pages/public/images/app_logo.png";
+const logo_img = LOGO_PATH;
 
 import { signCosUrl } from "../../utils/common";
 
@@ -17,6 +18,17 @@ Page({
     friendApps: [],
     friendLinkImgLoaded: false,
     text_cfg: text_cfg,
+
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 底部悬浮 dock 占位高度（由 initLayout 注入）
+    tabBarHeight: 0,
+    // 导航条下方可用高度（由 initLayout 注入）
+    contentHeight: 0,
+    // 毛玻璃顶栏带高度（由 initLayout 注入）
+    navBandHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
 
     // 卡片，不需要设计绘制卡片图，只需用放图标即可
     cards: [
@@ -53,6 +65,10 @@ Page({
       tools: true,
       dev: false,
       manager: false,
+      // Level-99 专属入口（页面配置 / 校区花色 / 识猫服务）
+      level99: false,
+      // Level-3 专属入口（猫抓板公告）
+      level3: false,
     },
     // 菜单列表
     menuList: [
@@ -116,12 +132,14 @@ Page({
           {
             name: "猫抓板公告",
             path: "/pages/news/createNews/createNews",
-            icon: "icon-license"
+            icon: "icon-license",
+            show: "level3"
           },
           {
             name: "校区/区域/花色",
             path: "/pages/manage/filters/filters",
-            icon: "icon-current-location"
+            icon: "icon-current-location",
+            show: "level99"
           },
           {
             name: "猫猫管理",
@@ -136,7 +154,8 @@ Page({
           {
             name: "页面配置",
             path: "/pages/manage/pageSettings/pageSettings",
-            icon: "icon-adjust-horizontal"
+            icon: "icon-adjust-horizontal",
+            show: "level99"
           },
           {
             name: "投喂记录",
@@ -148,6 +167,12 @@ Page({
             path: "/pages/manage/imProcess/imProcess",
             num: "numImProcess",
             icon: "icon-file-zip"
+          },
+          {
+            name: "识猫服务",
+            path: "/pages/debug/meowid/meowid",
+            icon: "icon-camera",
+            show: "level99"
           }
         ]
       }
@@ -166,7 +191,7 @@ Page({
       "showCond.dev": sysInfo.platform === "devtools"
     });
 
-    const { result: friendLinkRes } = await app.mpServerless.db.collection('setting').findOne({ _id: 'friendLink' });
+    const { result: friendLinkRes } = await apiDb.collection('setting').findOne({ _id: 'friendLink' });
     
     let { apps } = friendLinkRes;
     for (let i = 0; i < apps.length; i++) {
@@ -213,12 +238,12 @@ Page({
       deleted: { $ne: 1 }
     };
 
-    const { result: numAllCats } = await app.mpServerless.db.collection('cat').count(allCatQf);
-    const { result: numAllPhotos } = await app.mpServerless.db.collection('photo').count(allPhotoQf);
-    const { result: numAllComments } = await app.mpServerless.db.collection('comment').count(allCommentQf);
-    const { result: numSterilized } = await app.mpServerless.db.collection('cat').count(sterilizedQf);
-    const { result: numAdoptQf } = await app.mpServerless.db.collection('cat').count(adoptQf);
-    const { result: numCurrentCats } = await app.mpServerless.db.collection('cat').count(currentCatsQf);
+    const { result: numAllCats } = await apiDb.collection('cat').count(allCatQf);
+    const { result: numAllPhotos } = await apiDb.collection('photo').count(allPhotoQf);
+    const { result: numAllComments } = await apiDb.collection('comment').count(allCommentQf);
+    const { result: numSterilized } = await apiDb.collection('cat').count(sterilizedQf);
+    const { result: numAdoptQf } = await apiDb.collection('cat').count(adoptQf);
+    const { result: numCurrentCats } = await apiDb.collection('cat').count(currentCatsQf);
 
     // 计算绝育率
     const adoptRate = (numAdoptQf / numAllCats * 100).toFixed(1);
@@ -236,17 +261,21 @@ Page({
     if (!await isManagerAsync()) {
       return;
     }
+    // 「页面配置」「校区/区域/花色」「识猫服务」是 Level-99 专属，低等级管理员不显示入口
+    const isLevel99 = !!(await isManagerAsync(99));
+    // 「猫抓板公告」是 Level-3 专属（服务端 add.news 要求 3）
+    const isLevel3 = !!(await isManagerAsync(3));
     // 待处理照片
     const imProcessQf = { photo_compressed: { $in: [undefined, ''] }, verified: true };
-    const { result: numChkPhotos } = await app.mpServerless.db.collection('photo').count({ verified: false });
-    const { result: numChkComments } = await app.mpServerless.db.collection('comment').count({ needVerify: true });
-    const { result: numFeedbacks } = await app.mpServerless.db.collection('feedback').count({ dealed: false });
-    const { result: numImProcess } = await app.mpServerless.db.collection('photo').count(imProcessQf);
-    const { result: numMapAccessApps } = await app.mpServerless.db.collection('user').count({ 'mapAccess.status': 'pending' });
+    const { result: numChkPhotos } = await apiDb.collection('photo').count({ verified: false });
+    const { result: numChkComments } = await apiDb.collection('comment').count({ needVerify: true });
+    const { result: numFeedbacks } = await apiDb.collection('feedback').count({ dealed: false });
+    const { result: numImProcess } = await apiDb.collection('photo').count(imProcessQf);
+    const { result: numMapAccessApps } = await apiDb.collection('user').count({ 'mapAccess.status': 'pending' });
     // 待审核领养申请（集合可能尚未创建，容错处理）
     let numChkAdoptions = 0;
     try {
-      const { result } = await app.mpServerless.db.collection('adoption').count({ status: 'pending' });
+      const { result } = await apiDb.collection('adoption').count({ status: 'pending' });
       numChkAdoptions = result;
     } catch (err) {
       console.log('[onShow] - adoption集合尚未创建');
@@ -259,6 +288,8 @@ Page({
       "nums.numMapAccessApps": numMapAccessApps,
       "nums.numChkAdoptions": numChkAdoptions,
       "showCond.manager": true,
+      "showCond.level99": isLevel99,
+      "showCond.level3": isLevel3,
     });
   },
 

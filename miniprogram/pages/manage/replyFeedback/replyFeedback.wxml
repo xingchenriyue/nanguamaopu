@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="回复反馈" back="{{true}}" holder="{{true}}"></glass-nav>
 <block wx:if="{{auth}}">
   <view class='feedback-info'>
     <image src='{{feedback.userInfo.avatarUrl}}'></image>

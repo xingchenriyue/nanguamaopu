@@ -1,3 +1,4 @@
+const apiDb = require('../../utils/api.js').db;
 import {
   randomInt,
   formatDate,
@@ -13,13 +14,15 @@ import {
   getAvatar
 } from "../../utils/cat";
 import {
-  showTab
+  showTab,
+  initLayout
 } from "../../utils/page";
 
 import api from "../../utils/cloudApi";
 import { signCosUrl } from "../../utils/common.js";
 import { likeCheck, likeAdd } from "../../utils/inter";
 import { trackFollow } from "../../utils/achievement";
+import config from "../../config";
 
 const app = getApp();
 
@@ -32,30 +35,44 @@ const maxNDaysAgo = 30;
 // 头像渐变边框
 const { gradientAvatarSvg } = require('./gradientAvatar.svg.js');
 
-Page({
-  jsData: {
-    loadingLock: false,
-    waitingList: {
-      photo: [],
-      comment: [],
-    },
-    loadedCount: {
-      photo: 0,
-      comment: 0,
-    },
-    updatingFollowCats: false,
-    likingLock: false,
-  },
-  data: {
+Page({  data: {
+    logoPath: config.LOGO_PATH,
     feed: [],
     loadnomore: false,
     currentCatId: null,
+    // 顶部自定义导航栏预留高度（由 initLayout 注入）
+    navTotalHeight: 0,
+    // 底部悬浮 dock 占位高度（由 initLayout 注入）
+    tabBarHeight: 0,
+    // 导航条下方可用高度（由 initLayout 注入）
+    contentHeight: 0,
+    // 毛玻璃顶栏带高度（由 initLayout 注入）
+    navBandHeight: 0,
+    // 屏幕高度（由 initLayout 注入）
+    screenHeight: 0,
   },
 
   /**
    * 生命周期函数--监听页面加载
    */
   async onLoad() {
+    // jsData 放页面实例上，不作为 Page 的顶层选项：
+    // 微信会把顶层 jsData 判为“游离数据”并告警
+    // "Free data with key \"jsData\" ... seems not a simple value"。
+    this.jsData = {
+      loadingLock: false,
+      waitingList: {
+        photo: [],
+        comment: [],
+      },
+      loadedCount: {
+        photo: 0,
+        comment: 0,
+      },
+      updatingFollowCats: false,
+      likingLock: false,
+    };
+
     // 标记是否需要重新加载Feed数据
     let needRefreshFeed = true;
     let needIncrementalUpdate = false;
@@ -130,7 +147,8 @@ Page({
    * 生命周期函数--监听页面初次渲染完成
    */
   onReady() {
-
+    // 自定义导航栏 + 悬浮 dock 的布局尺寸
+    initLayout(this);
   },
 
   /**
@@ -201,7 +219,7 @@ Page({
   async loadFollowCats() {
     let { openid } = this.data.user;
     // 获取用户的关注列表
-    const followCats = (await app.mpServerless.db.collection('user').findOne({
+    const followCats = (await apiDb.collection('user').findOne({
       openid: openid
     }, {
       projection: {
@@ -238,7 +256,7 @@ Page({
     const maxCreateDate = getDateWithDiffHours(-1 * maxNDaysAgo * 24);
 
     // 批量获取所有关注猫的最新照片（一次查询）
-    const latestPhotosQuery = await app.mpServerless.db.collection('photo').find({
+    const latestPhotosQuery = await apiDb.collection('photo').find({
       cat_id: { $in: followCats },
       verified: true,
       create_date: { $gt: maxCreateDate },
@@ -247,7 +265,7 @@ Page({
     })
 
     // 批量获取所有关注猫的最新评论（一次查询）
-    const latestCommentsQuery = await app.mpServerless.db.collection('comment').find({
+    const latestCommentsQuery = await apiDb.collection('comment').find({
       cat_id: { $in: followCats },
       deleted: { $ne: true },
       photo_id: { $exists: false },
@@ -333,7 +351,7 @@ Page({
     }
 
     // 查询数据
-    let { result: res } = await app.mpServerless.db.collection(coll).find(whereField, {
+    let { result: res } = await apiDb.collection(coll).find(whereField, {
       sort: { create_date: -1 },
       skip: loadedCount[coll],
       limit: limit,
@@ -941,16 +959,16 @@ Page({
 
       if (currentCatId) {
         // 查询指定猫的最新照片
-        photoQuery = app.mpServerless.db.collection('photo').find({ cat_id: currentCatId, verified: true, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
+        photoQuery = apiDb.collection('photo').find({ cat_id: currentCatId, verified: true, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
 
         // 查询指定猫的最新评论
-        commentQuery = app.mpServerless.db.collection('comment').find({ cat_id: currentCatId, deleted: { $ne: true }, photo_id: { $exists: false }, needVerify: false, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
+        commentQuery = apiDb.collection('comment').find({ cat_id: currentCatId, deleted: { $ne: true }, photo_id: { $exists: false }, needVerify: false, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
       } else {
         // 查询所有关注猫的最新照片
-        photoQuery = app.mpServerless.db.collection('photo').find({ cat_id: { $in: followCats }, verified: true, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
+        photoQuery = apiDb.collection('photo').find({ cat_id: { $in: followCats }, verified: true, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
 
         // 查询所有关注猫的最新评论
-        commentQuery = app.mpServerless.db.collection('comment').find({ cat_id: { $in: followCats }, deleted: { $ne: true }, photo_id: { $exists: false }, needVerify: false, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
+        commentQuery = apiDb.collection('comment').find({ cat_id: { $in: followCats }, deleted: { $ne: true }, photo_id: { $exists: false }, needVerify: false, create_date: { $gt: latestDate } }, { sort: { create_date: -1 } });
       }
 
       // 并行执行查询

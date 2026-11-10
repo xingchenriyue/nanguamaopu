@@ -1,3 +1,6 @@
+
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="兑换码管理" back="{{true}}" holder="{{true}}"></glass-nav>
 <!--pages/manage/badgeCode/badgeCode.wxml-->
 <block wx:if="{{auth}}">
   <button class="primary" bindtap="onNew">生成兑换码</button>

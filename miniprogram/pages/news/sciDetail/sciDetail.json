@@ -1,4 +1,8 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "猫猫科普"
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
+  "navigationBarTitleText": "猫猫科普",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

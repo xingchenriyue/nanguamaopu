@@ -1,8 +1,10 @@
+const apiDb = require('../../../utils/api.js').db;
 import { getCurrentPath, shareTo } from "../../../utils/utils";
 import { getPageUserInfo, checkCanFeedback } from "../../../utils/user";
 import { requestNotice, sendNotifyChkFeeedback } from "../../../utils/msg";
 import { text as text_cfg } from "../../../config";
 import api from "../../../utils/cloudApi";
+import { isWriteOk, normalizeWriteResult } from "../../../utils/common";
 const app = getApp();
 Page({
   /**
@@ -22,7 +24,7 @@ Page({
    */
   onLoad: async function (options) {
     if (options.cat_id != undefined) {
-      const { result: catRes } = await app.mpServerless.db.collection('cat').findOne({ _id: options.cat_id }, { projection: { name: 1, _id: 1 } })
+      const { result: catRes } = await apiDb.collection('cat').findOne({ _id: options.cat_id }, { projection: { name: 1, _id: 1 } })
       this.setData({
         cat: catRes
       });
@@ -121,12 +123,16 @@ Page({
     });
 
     console.log("curdOp(add-feedback) result:", res);
-    if (!res.ok) {
+    // 【成功判定 + 取 id】后端 curdOp 的 add 分支返回
+    // { result: { insertedId, acknowledged }, ok: true }（服务器实测，result 是嵌套的）
+    // 所以 insertedId 在 res.result.insertedId，直接读 res.insertedId 会得到 undefined。
+    const wr = normalizeWriteResult(res);
+    if (!wr.ok) {
       console.log('repliable record fail:\n');
       return;
     }
     this.setData({
-      feedbackId: res.insertedId
+      feedbackId: wr.insertedId
     });
     await this.askNotice();
     wx.hideLoading();
@@ -149,7 +155,8 @@ Page({
     });
 
     console.log("curdOp(feedback-update) result:", res);
-    if (res.ok) {
+    // update 分支返回 { matchedCount, modifiedCount, acknowledged }，无 ok 字段
+    if (isWriteOk(res)) {
       wx.navigateBack();
     } else {
       console.log('repliable record fail:\n', res);

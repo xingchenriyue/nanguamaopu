@@ -1,5 +1,9 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "glass-nav": "/components/glass-nav/glass-nav"
+  },
   "navigationBarTitleText": "公告详情",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black"
 }

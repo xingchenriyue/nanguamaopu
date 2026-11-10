@@ -1,6 +1,9 @@
 <!-- 禁用页面滚动（地图选点打开时） -->
 <page-meta page-style="{{pageMetaStyle}}"></page-meta>
 
+<!-- 顶部毛玻璃导航栏（返回 + 标题） -->
+<glass-nav title="添加照片" back="{{true}}" holder="{{true}}"></glass-nav>
+
 <!-- 坐标格式化 WXS -->
 <wxs module="fmt">
 function fixed6(val) {

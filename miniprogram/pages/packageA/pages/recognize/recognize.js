@@ -374,7 +374,12 @@ Page({
 
   async recognizePhoto() {
     if (!(await this.ensureLoginForRecognize())) return;
-    if (!(await this.ensureRecognizeQuota())) return;
+    if (!(await this.ensureRecognizeQuota())) {
+      // 用户取消看广告 / 次数用完：回到刚进识猫页的状态（全屏取景），
+      // 否则页面会卡在「已拍好照片但没有结果」的中间态，看着像死机。
+      this.reset();
+      return;
+    }
     const stateInitialized = this.initJsData();
     this.setData({ catList: [], catBoxList: [], showResultBox: false, unknownCat: false,
       recognitionMessage: '正在处理图片并请求识猫服务，请稍候…' });

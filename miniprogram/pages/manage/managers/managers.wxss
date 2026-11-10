@@ -354,3 +354,30 @@ button.manager-update {
   font-size: 26rpx;
   color: var(--color-gray-max);
 }
+
+
+/* ===== 识猫次数 / 免广告（人员管理） ===== */
+.recognize-usage {
+  display: flex;
+  gap: 24rpx;
+  padding: 10rpx 24rpx 0;
+  font-size: 24rpx;
+  color: var(--color-gray-max);
+}
+
+.ad-exempt-entry {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 0 12rpx;
+}
+
+.ad-exempt-state {
+  font-size: 24rpx;
+  color: var(--color-gray-max);
+}
+
+.ad-exempt-state.on {
+  color: var(--color-primary);
+  font-weight: bold;
+}

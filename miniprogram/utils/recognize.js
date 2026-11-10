@@ -98,6 +98,24 @@ function readMeowidConfig(recognize) {
 // ============================================================
 const AD_USAGE_KEY = 'recognize-ad-usage';
 
+/**
+ * 把计数快照上报到服务端（user.recognizeUsage）。
+ * 【为什么需要】人员管理页要展示每个用户「识别了几次 / 看了几次广告 / 还剩几次」，
+ * 本地 storage 服务端看不到，所以每次计数变化后顺手同步一份快照。
+ * 失败只告警，绝不阻塞识别/赠送流程。
+ */
+async function syncAdUsageToServer(usage) {
+  if (!usage) return null;
+  try {
+    const request = require('./request.js');
+    const res = await request.post('/api/recognize/usage', { action: 'set', usage });
+    return (res && res.usage) || null;
+  } catch (error) {
+    console.warn('[recognize] 上报识别次数快照失败', error);
+    return null;
+  }
+}
+
 /** 计数桶：按重置策略决定什么时候清零（本地日期，避免 UTC 偏移到前一天） */
 function adBucketKey(reset, now) {
   const d = new Date(now || Date.now());
@@ -138,6 +156,7 @@ function addRecognizeBonus(count, reset) {
   const usage = readAdUsage(reset);
   usage.bonus += add;
   writeAdUsage(usage);
+  syncAdUsageToServer(usage);
   return usage;
 }
 
@@ -171,6 +190,7 @@ module.exports = {
   readAdUsage,
   writeAdUsage,
   addRecognizeBonus,
+  syncAdUsageToServer,
   getRecognizeMode,
   normalizeRecognizeResponse,
   MEOWID_CONFIG_TARGET,

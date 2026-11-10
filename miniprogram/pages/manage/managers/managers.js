@@ -5,7 +5,7 @@ import { formatDate } from "../../../utils/utils";
 import api from "../../../utils/cloudApi";
 import { signCosUrl, isWriteOk } from "../../../utils/common";
 import { isDemoMode } from "../../../utils/demo";
-import { initLayout } from "../../../utils/page";
+import { initLayout, getGlobalSettings } from "../../../utils/page";
 import { getPageMetrics } from "../../../utils/layout";
 
 // 是否正在加载
@@ -23,6 +23,8 @@ Page({
     tipBtn: false,
     userSearch: '',
     managerOnly: false,
+    loggedinOnly: false,   // 只看登录用户（有昵称 + 有头像）
+    adFreeTimes: 2,        // 识猫每天赠送次数（来自页面配置，用于算「剩余识别次数」）
     users: [],
     // 内层滚动区可用高度（由 initLayout 注入：视口高度 - 毛玻璃顶栏）
     windowHeight: "300",
@@ -41,6 +43,10 @@ Page({
   onLoad: async function (options) {
     // 自定义导航栏 + 悬浮 dock 的布局尺寸
     initLayout(this);
+    // 识猫「每天赠送次数」影响每人剩余次数的换算，先读页面配置
+    const ads = await getGlobalSettings('ads', { nocache: true }) || {};
+    const freeTimes = parseInt(ads.recognize_free_times, 10);
+    this.setData({ adFreeTimes: Number.isFinite(freeTimes) && freeTimes >= 1 ? freeTimes : 2 });
     if (await checkAuth(this, 99)) {
       await this.loadUsers(true);
       this.getHeights();
@@ -101,6 +107,13 @@ Page({
     if (this.data.mapAccessOnly) {
       query["mapAccess.status"] = "approved"
     }
+    // 只看登录用户：有昵称 + 有头像（与识猫页 classifyUser 的判定一致）
+    if (this.data.loggedinOnly) {
+      const and = query.$and || [];
+      and.push({ "userInfo.nickName": { $gt: "" } });
+      and.push({ "userInfo.avatarUrl": { $gt: "" } });
+      query.$and = and;
+    }
     console.log("query", query);
     var { result: userRes } = await apiDb.collection('user').find(query, { skip: users.length, limit: 10 })
     await this.signUserAvatars(userRes);
@@ -118,6 +131,28 @@ Page({
         return;
       }
       users = users.concat(userRes);
+    }
+    // 附加识猫次数 / 免广告的展示字段（wxml 里不写复杂表达式）
+    const freeTimes = Number(this.data.adFreeTimes) || 2;
+    const today = (() => {
+      const d = new Date();
+      return 'd' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    })();
+    for (const u of users) {
+      const usage = u.recognizeUsage || {};
+      // 跨天（或跨周/永久桶）时，快照已过期，按 0 展示更接近真实
+      const stale = usage.bucket && usage.bucket !== 'forever' && usage.bucket.charAt(0) === 'd' && usage.bucket !== today;
+      const used = stale ? 0 : (Number(usage.used) || 0);
+      const ads = stale ? 0 : (Number(usage.ads) || 0);
+      const bonus = stale ? 0 : (Number(usage.bonus) || 0);
+      u.adUsed = used;
+      u.adSeen = ads;
+      u.adRemaining = Math.max(0, freeTimes + bonus - used);
+      const until = u.userInfo && u.userInfo.adExemptUntil;
+      const permanent = until === 0 || until === '0';
+      const daysLeft = Number(until) > Date.now() ? Math.ceil((Number(until) - Date.now()) / 86400000) : 0;
+      u.adExempt = permanent || daysLeft > 0;
+      u.adExemptText = permanent ? '永久' : (daysLeft > 0 ? ('还剩 ' + daysLeft + ' 天') : '无');
     }
     this.setData({
       users: users
@@ -157,6 +192,7 @@ Page({
     this.data.managerOnly = filters.indexOf('manager-only') != -1;
     this.data.role1Only = filters.indexOf('role1-only') != -1;
     this.data.mapAccessOnly = filters.indexOf('mapAccess-only') != -1;
+    this.data.loggedinOnly = filters.indexOf('loggedin-only') != -1;
     this.data.users = [];
     await this.loadUsers(true);
   },
@@ -220,7 +256,15 @@ Page({
       wx.showToast({ icon: 'none', title: '保存失败（服务端未命中记录）' });
       return;
     }
-    this.setData({ ['users[' + index + '].userInfo']: userInfo });
+    // 立刻更新卡片上的免广告状态，不用等重新加载列表
+    const until = userInfo.adExemptUntil;
+    const permanent = until === 0 || until === '0';
+    const daysLeft = Number(until) > Date.now() ? Math.ceil((Number(until) - Date.now()) / 86400000) : 0;
+    this.setData({
+      ['users[' + index + '].userInfo']: userInfo,
+      ['users[' + index + '].adExempt']: permanent || daysLeft > 0,
+      ['users[' + index + '].adExemptText']: permanent ? '永久' : (daysLeft > 0 ? ('还剩 ' + daysLeft + ' 天') : '无'),
+    });
     wx.showToast({ title: '已保存' });
   },
 

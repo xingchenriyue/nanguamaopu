@@ -15,7 +15,7 @@ import {
 import drawUtils from "../../../../utils/draw";
 import { signPhotoUrls } from  "../../../../utils/cat";
 import api from "../../../../utils/cloudApi";
-import { getRecognizeMode, readAdUsage, writeAdUsage } from "../../../../utils/recognize";
+import { getRecognizeMode, readAdUsage, writeAdUsage, syncAdUsageToServer } from "../../../../utils/recognize";
 import { getUser, getUserType } from "../../../../utils/user";
 
 const share_text = text_cfg.app_name + ' - ' + text_cfg.recognize.share_tip;
@@ -207,6 +207,8 @@ Page({
 
   saveAdUsage(usage) {
     writeAdUsage(usage);
+    // 同步一份快照到服务端，人员管理页才能看到每个人的识别/广告次数
+    syncAdUsageToServer(usage);
   },
 
   /** 是否免广告：单用户到期时间（人员管理页设置）+ 页面配置的免广告人群 */

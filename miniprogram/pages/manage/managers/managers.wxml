@@ -29,6 +29,7 @@
         <checkbox-group bindchange="filterChange">
           <checkbox value="manager-only" style="font-size: 28rpx;  margin-right: 20rpx;">只看管理员</checkbox>
           <checkbox value="role1-only" style="font-size: 28rpx; margin-right: 20rpx;">只看特邀</checkbox>
+          <checkbox value="loggedin-only" style="font-size: 28rpx; margin-right: 20rpx;">只看登录用户</checkbox>
           <checkbox value="mapAccess-only" style="font-size: 28rpx;">只看地图</checkbox>
         </checkbox-group>
       </view>
@@ -71,15 +72,22 @@
             </view>
           </view>
 
+          <!-- 识猫次数 / 广告次数（来自 user.recognizeUsage 快照） -->
+          <view class="recognize-usage">
+            <text>已识别 {{item.adUsed || 0}} 次</text>
+            <text>看广告 {{item.adSeen || 0}} 次</text>
+            <text>剩 {{item.adRemaining || 0}} 次</text>
+          </view>
+
           <!-- 行2: 地图权限开关 + 更新按钮 -->
           <view class="operation-row operation-row-bottom">
             <view class="map-toggle">
               <text class="toggle-label">喵地图</text>
               <switch checked="{{item.mapAccess && item.mapAccess.status === 'approved'}}" data-index="{{index}}" bindchange="toggleMapAccess" color="#406090" />
             </view>
-            <view class="map-toggle ad-exempt-entry" data-index="{{index}}" bindtap="setAdExempt">
-              <text class="toggle-label">免广告</text>
-              <text class="ad-exempt-state">{{item.userInfo.adExemptUntil === 0 ? '永久' : (item.userInfo.adExemptUntil > 0 ? '限期' : '无')}}</text>
+            <view class="ad-exempt-entry" data-index="{{index}}" bindtap="setAdExempt">
+              <text class="toggle-label">识猫免广告</text>
+              <text class="ad-exempt-state {{item.adExempt ? 'on' : ''}}">{{item.adExemptText}}</text>
             </view>
             <button form-type="submit" class="manager-update primary">更新</button>
             <view class="index">#{{index}}</view>
